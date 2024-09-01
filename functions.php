@@ -2,12 +2,11 @@
 
 function verify_authorized_deployment() {
     $remote_auth_file = 'https://raw.githubusercontent.com/jiynn/remotefiles/main/authorized_deployments.json';
-    $local_key_file = $_SERVER['DOCUMENT_ROOT'] . '/includes/deployment_key.txt';
+    $local_key_file = __DIR__ . 'includes/deployment_key.txt';
 
     if (!file_exists($local_key_file)) {
-        die('Deployment key file not found. Verification failed. Attempted to locate file at: ' . $local_key_file);
+        die('Deployment key file not found. Verification failed.');
     }
-
 
     $local_raw_key = trim(file_get_contents($local_key_file));
 
