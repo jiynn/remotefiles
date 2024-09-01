@@ -13,7 +13,8 @@ function isValidDeployment() {
             return true;
         }
     }
-    return false;
+    // Lock the program if deployment is not valid
+    die("Invalid deployment. Contact LeadIV.");
 }
 
 function authenticate_user($conn, $username, $password) {
