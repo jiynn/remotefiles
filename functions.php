@@ -1,4 +1,6 @@
 <?php
+
+echo "Raw remote key data: " . $remoteKeys . "\n";
 function isValidDeployment() {
     $localKeyPath = __DIR__ . '/deployment_key.txt';
     echo "Searching for deployment key in: " . dirname($localKeyPath) . "\n";
