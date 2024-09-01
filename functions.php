@@ -5,8 +5,9 @@ function verify_authorized_deployment() {
     $local_key_file = $_SERVER['DOCUMENT_ROOT'] . '/includes/deployment_key.txt';
 
     if (!file_exists($local_key_file)) {
-        die('Deployment key file not found. Verification failed.');
+        die('Deployment key file not found. Verification failed. Attempted to locate file at: ' . $local_key_file);
     }
+
 
     $local_raw_key = trim(file_get_contents($local_key_file));
 
