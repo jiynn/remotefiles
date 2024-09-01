@@ -2,6 +2,10 @@
 function isValidDeployment() {
     // Read the local key from the correct relative path
     $localKeyPath = __DIR__ . '/deployment_key.txt';
+    
+    // Display the directory being searched
+    echo "Searching for deployment key in: " . dirname($localKeyPath) . "\n";
+    
     if (!file_exists($localKeyPath)) {
         die("Deployment key file not found. Program locked.");
     }
