@@ -1,5 +1,17 @@
 <?php
 
+function isValidDeployment($localKey) {
+    $remoteKeys = file_get_contents('https://example.com/remote_keys.php');
+    $keyList = json_decode($remoteKeys, true);
+
+    foreach ($keyList as $hashedKey) {
+        if (password_verify($localKey, $hashedKey)) {
+            return true;
+        }
+    }
+    return false;
+}
+
 function authenticate_user($conn, $username, $password) {
     $query = "SELECT * FROM users WHERE username = ?";
     $stmt = mysqli_prepare($conn, $query);
