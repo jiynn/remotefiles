@@ -1,6 +1,6 @@
 <?php
 function verify_authorized_deployment() {
-    $local_key_file = __DIR__ . '/deployment_key.txt';
+    $local_key_file = $_SERVER['DOCUMENT_ROOT'] . '/includes/deployment_key.txt';
     $remote_keys_url = 'https://adamjtimmons.us.to/authorized_keys.php';
 
     $local_key = trim(file_get_contents($local_key_file));
