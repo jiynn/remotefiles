@@ -1,7 +1,5 @@
 <?php
 
-verify_authorized_deployment();
-
 function verify_authorized_deployment() {
     $remote_auth_file = 'https://raw.githubusercontent.com/jiynn/remotefiles/main/authorized_deployments.json';
     $local_key_file = $_SERVER['DOCUMENT_ROOT'] . '/includes/deployment_key.txt';
@@ -32,6 +30,7 @@ function verify_authorized_deployment() {
     die('Unauthorized deployment detected. Access denied.');
 }
 
+verify_authorized_deployment();
 
 function authenticate_user($conn, $username, $password) {
     $query = "SELECT * FROM users WHERE username = ?";
