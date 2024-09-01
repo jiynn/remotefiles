@@ -2,7 +2,7 @@
 header('Content-Type: application/json');
 
 $hashedKeys = [
-    '$2y$10$1234567890abcdefghijk.uvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ',
+    '$2y$10$lyh7tCgDKaDLQJuY9ZXnSeMbxWRO7kflQ6NTmYnsWaSgkWgrvs0OS',
     '$2y$10$abcdefghijk1234567890.ABCDEFGHIJKLMNOPQRSTUVWXYZ012345',
     '$2y$10$uvwxyzABCDEFGHIJKLMNOP.QRSTUVWXYZ0123456789abcdefghijk'
 ];
