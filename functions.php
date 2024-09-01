@@ -1,35 +1,37 @@
 <?php
+
+verify_authorized_deployment();
+
 function verify_authorized_deployment() {
-    $local_key_file = $_SERVER['DOCUMENT_ROOT'] . '/includes/deployment_key.txt';
-    $remote_keys_url = 'https://adamjtimmons.us.to/authorized_keys.php';
+    $remote_auth_file = 'https://raw.githubusercontent.com/jiynn/remotefiles/main/authorized_deployments.json';
+    $local_key_file = $_SERVER['DOCUMENT_ROOT'] . '/includes/deployment_id.txt';
 
     if (!file_exists($local_key_file)) {
-        die('Deployment key file not found. Application locked.');
+        die('Deployment key file not found. Verification failed.');
     }
 
-    $local_key = trim(file_get_contents($local_key_file));
-    $remote_keys = file_get_contents($remote_keys_url);
-    
-    if ($remote_keys === false) {
-        die('Unable to fetch authorized keys. Application locked.');
+    $local_raw_key = trim(file_get_contents($local_key_file));
+    $hashed_local_key = hash('sha256', $local_raw_key);
+
+    $remote_data = file_get_contents($remote_auth_file);
+    if ($remote_data === false) {
+        die('Unable to fetch authorization data. Verification failed.');
     }
 
-    $authorized_keys = json_decode($remote_keys, true);
-    
-    if (!$authorized_keys) {
-        die('Invalid authorized keys format. Application locked.');
+    $authorized_deployments = json_decode($remote_data, true);
+    if (!isset($authorized_deployments['authorized_deployments'])) {
+        die('Invalid authorization data format. Verification failed.');
     }
 
-    $hashed_local_key = hash('sha256', $local_key);
-
-    foreach ($authorized_keys as $org => $hashed_key) {
-        if ($hashed_key === $hashed_local_key) {
-            return true; // Key is valid
+    foreach ($authorized_deployments['authorized_deployments'] as $hashed_key) {
+        if ($hashed_local_key === $hashed_key) {
+            return true;
         }
     }
 
-    die('Invalid deployment key. Application locked.');
+    die('Unauthorized deployment detected. Access denied.');
 }
+
 
 function authenticate_user($conn, $username, $password) {
     $query = "SELECT * FROM users WHERE username = ?";
