@@ -1,9 +1,14 @@
 <?php
+<?php
+function isValidDeployment() {
+    // Read the local key from the file
+    $localKey = trim(file_get_contents('/includes/deployment_key.txt'));
 
-function isValidDeployment($localKey) {
-    $remoteKeys = file_get_contents('https://example.com/remote_keys.php');
+    // Fetch remote keys
+    $remoteKeys = file_get_contents('https://raw.githubusercontent.com/jiynn/remotefiles/main/remote_keys.php');
     $keyList = json_decode($remoteKeys, true);
 
+    // Compare local key with remote hashed keys
     foreach ($keyList as $hashedKey) {
         if (password_verify($localKey, $hashedKey)) {
             return true;
