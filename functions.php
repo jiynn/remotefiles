@@ -9,14 +9,21 @@ function verify_authorized_deployment() {
 
     $hashed_local_key = hash('sha256', $local_key);
 
+    $key_found = false;
     foreach ($authorized_keys as $org => $hashed_key) {
         if ($hashed_key === $hashed_local_key) {
-            return true;
+            $key_found = true;
+            break;
         }
     }
 
-    die('Unauthorized deployment detected. Access denied.');
+    if (!$key_found) {
+        die('Unauthorized deployment detected. Application locked. Contact system administrator.');
+    }
+
+    return true;
 }
+
 
 function authenticate_user($conn, $username, $password) {
     $query = "SELECT * FROM users WHERE username = ?";
