@@ -1,6 +1,22 @@
 <?php
+function verify_authorized_deployment() {
+    $local_key_file = __DIR__ . '/deployment_key.txt';
+    $remote_keys_url = 'https://adamjtimmons.us.to/authorized_keys.php';
 
-require_once 'config/db_config.php';
+    $local_key = trim(file_get_contents($local_key_file));
+    $remote_keys = file_get_contents($remote_keys_url);
+    $authorized_keys = json_decode($remote_keys, true);
+
+    $hashed_local_key = hash('sha256', $local_key);
+
+    foreach ($authorized_keys as $org => $hashed_key) {
+        if ($hashed_key === $hashed_local_key) {
+            return true;
+        }
+    }
+
+    die('Unauthorized deployment detected. Access denied.');
+}
 
 function authenticate_user($conn, $username, $password) {
     $query = "SELECT * FROM users WHERE username = ?";
@@ -126,25 +142,6 @@ function get_lead_assignment_stats($conn, $users) {
         ];
     }
     return $stats;
-}
-
-function verify_authorized_deployment() {
-    $local_key_file = __DIR__ . '/deployment_key.txt';
-    $remote_keys_url = 'https://raw.githubusercontent.com/jiynn/remotefiles/main/authorized_keys.php';
-
-    $local_key = trim(file_get_contents($local_key_file));
-    $remote_keys = file_get_contents($remote_keys_url);
-    $authorized_keys = json_decode($remote_keys, true);
-
-    $hashed_local_key = hash('sha256', $local_key);
-
-    foreach ($authorized_keys as $org => $hashed_key) {
-        if ($hashed_key === $hashed_local_key) {
-            return true;
-        }
-    }
-
-    die('Unauthorized deployment detected. Access denied.');
 }
 
 function assign_leads($conn) {
