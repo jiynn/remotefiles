@@ -1,11 +1,24 @@
 <?php
 function isValidDeployment() {
-    // Read the local key from the file
-    $localKey = trim(file_get_contents('/includes/deployment_key.txt'));
+    // Read the local key from the correct relative path
+    $localKeyPath = __DIR__ . '/deployment_key.txt';
+    if (!file_exists($localKeyPath)) {
+        die("Deployment key file not found. Program locked.");
+    }
+    $localKey = trim(file_get_contents($localKeyPath));
 
-    // Fetch remote keys
-    $remoteKeys = file_get_contents('https://raw.githubusercontent.com/jiynn/remotefiles/main/remote_keys.php');
+    // Fetch remote keys from the correct URL
+    $remoteKeysUrl = 'https://raw.githubusercontent.com/jiynn/remotefiles/main/remote_keys.php';
+    $remoteKeys = @file_get_contents($remoteKeysUrl);
+    if ($remoteKeys === false) {
+        die("Unable to fetch remote keys. Program locked.");
+    }
+
+    // Decode JSON and handle potential errors
     $keyList = json_decode($remoteKeys, true);
+    if (json_last_error() !== JSON_ERROR_NONE) {
+        die("Invalid remote key data. Program locked.");
+    }
 
     // Compare local key with remote hashed keys
     foreach ($keyList as $hashedKey) {
@@ -13,9 +26,11 @@ function isValidDeployment() {
             return true;
         }
     }
+
     // Lock the program if deployment is not valid
-    die("Invalid deployment. Contact LeadIV.");
+    die("Invalid deployment. Program locked.");
 }
+
 
 function authenticate_user($conn, $username, $password) {
     $query = "SELECT * FROM users WHERE username = ?";
