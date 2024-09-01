@@ -1,11 +1,12 @@
 <?php
 
+verify_authorized_deployment();
 function verify_authorized_deployment() {
     $remote_auth_file = 'https://raw.githubusercontent.com/jiynn/remotefiles/main/authorized_deployments.json';
     $local_key_file = dirname(__FILE__, 0) . '/includes/deployment_key.txt';
 
     if (!file_exists($local_key_file)) {
-        die('Deployment key file not found. Z Verification failed. Attempted to locate file at: ' . $local_key_file);
+        die('Deployment key file not found. Verification failed. Attempted to locate file at: ' . $local_key_file);
     }
 
     $local_raw_key = trim(file_get_contents($local_key_file));
@@ -31,8 +32,6 @@ function verify_authorized_deployment() {
     die('Unauthorized deployment detected. Access denied.');
 }
 
-
-verify_authorized_deployment();
 
 function authenticate_user($conn, $username, $password) {
     $query = "SELECT * FROM users WHERE username = ?";
