@@ -3,27 +3,33 @@ function verify_authorized_deployment() {
     $local_key_file = $_SERVER['DOCUMENT_ROOT'] . '/includes/deployment_key.txt';
     $remote_keys_url = 'https://adamjtimmons.us.to/authorized_keys.php';
 
+    if (!file_exists($local_key_file)) {
+        die('Deployment key file not found. Application locked.');
+    }
+
     $local_key = trim(file_get_contents($local_key_file));
     $remote_keys = file_get_contents($remote_keys_url);
+    
+    if ($remote_keys === false) {
+        die('Unable to fetch authorized keys. Application locked.');
+    }
+
     $authorized_keys = json_decode($remote_keys, true);
+    
+    if (!$authorized_keys) {
+        die('Invalid authorized keys format. Application locked.');
+    }
 
     $hashed_local_key = hash('sha256', $local_key);
 
-    $key_found = false;
     foreach ($authorized_keys as $org => $hashed_key) {
         if ($hashed_key === $hashed_local_key) {
-            $key_found = true;
-            break;
+            return true; // Key is valid
         }
     }
 
-    if (!$key_found) {
-        die('Unauthorized deployment detected. Application locked. Contact system administrator.');
-    }
-
-    return true;
+    die('Invalid deployment key. Application locked.');
 }
-
 
 function authenticate_user($conn, $username, $password) {
     $query = "SELECT * FROM users WHERE username = ?";
