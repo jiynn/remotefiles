@@ -1,38 +1,5 @@
 <?php
 
-verify_authorized_deployment();
-function verify_authorized_deployment() {
-    $remote_auth_file = 'https://raw.githubusercontent.com/jiynn/remotefiles/main/authorized_deployments.json';
-    $local_key_file = dirname(__FILE__, 0) . '/includes/deployment_key.txt';
-
-    if (!file_exists($local_key_file)) {
-        die('Deployment key file not found. Verification failed. Attempted to locate file at: ' . $local_key_file);
-    }
-
-    $local_raw_key = trim(file_get_contents($local_key_file));
-
-    $remote_data = file_get_contents($remote_auth_file);
-    if ($remote_data === false) {
-        die('Unable to fetch authorization data. Verification failed.');
-    }
-
-    $authorized_deployments = json_decode($remote_data, true);
-    if (!isset($authorized_deployments['authorized_deployments'])) {
-        die('Invalid authorization data format. Verification failed.');
-    }
-
-    $hashed_local_key = hash('sha256', $local_raw_key);
-
-    foreach ($authorized_deployments['authorized_deployments'] as $hashed_key) {
-        if ($hashed_local_key === $hashed_key) {
-            return true;
-        }
-    }
-
-    die('Unauthorized deployment detected. Access denied.');
-}
-
-
 function authenticate_user($conn, $username, $password) {
     $query = "SELECT * FROM users WHERE username = ?";
     $stmt = mysqli_prepare($conn, $query);
