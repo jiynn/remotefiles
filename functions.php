@@ -9,7 +9,6 @@ function verify_authorized_deployment() {
     }
 
     $local_raw_key = trim(file_get_contents($local_key_file));
-    $hashed_local_key = hash('sha256', $local_raw_key);
 
     $remote_data = file_get_contents($remote_auth_file);
     if ($remote_data === false) {
@@ -21,6 +20,8 @@ function verify_authorized_deployment() {
         die('Invalid authorization data format. Verification failed.');
     }
 
+    $hashed_local_key = hash('sha256', $local_raw_key);
+
     foreach ($authorized_deployments['authorized_deployments'] as $hashed_key) {
         if ($hashed_local_key === $hashed_key) {
             return true;
@@ -29,6 +30,7 @@ function verify_authorized_deployment() {
 
     die('Unauthorized deployment detected. Access denied.');
 }
+
 
 verify_authorized_deployment();
 
