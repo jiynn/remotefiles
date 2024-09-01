@@ -1,5 +1,4 @@
 <?php
-<?php
 function isValidDeployment() {
     // Read the local key from the file
     $localKey = trim(file_get_contents('/includes/deployment_key.txt'));
