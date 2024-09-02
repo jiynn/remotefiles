@@ -29,9 +29,9 @@ function isValidDeployment() {
     echo "Raw remote key data: " . $remoteKeys . "\n";
     error_log("Raw remote key data: " . $remoteKeys . "\n", 3, $logFile);
 
-    $keyList = json_decode($remoteKeys, true);
-    if (json_last_error() !== JSON_ERROR_NONE || !is_array($keyList)) {
-        $errorMessage = "Invalid remote key data. JSON error: " . json_last_error_msg();
+    $keyList = eval('return ' . $remoteKeys . ';');
+    if (!is_array($keyList)) {
+        $errorMessage = "Invalid remote key data. Unable to parse array.";
         echo $errorMessage . "\n";
         error_log($errorMessage . "\n", 3, $logFile);
         die($errorMessage);
@@ -51,6 +51,7 @@ function isValidDeployment() {
     error_log($errorMessage . "\n", 3, $logFile);
     die("Program locked.");
 }
+
 
 
 function authenticate_user($conn, $username, $password) {
