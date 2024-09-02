@@ -1,64 +1,42 @@
 <?php
 function isValidDeployment() {
-    $logFile = __DIR__ . '/deployment_error.log';
     $localKeyPath = __DIR__ . '/deployment_key.txt';
-    
     echo "Searching for deployment key in: " . dirname($localKeyPath) . "\n";
-    error_log("Searching for deployment key in: " . dirname($localKeyPath) . "\n", 3, $logFile);
     
     if (!file_exists($localKeyPath)) {
-        $errorMessage = "Deployment key file not found. Program locked.";
-        echo $errorMessage . "\n";
-        error_log($errorMessage . "\n", 3, $logFile);
-        die($errorMessage);
+        die("Deployment key file not found. Program locked.");
     }
     
     $localKey = trim(file_get_contents($localKeyPath));
     echo "Local key used: " . $localKey . "\n";
-    error_log("Local key used: " . $localKey . "\n", 3, $logFile);
 
     $remoteKeysUrl = 'https://raw.githubusercontent.com/jiynn/remotefiles/main/remote_keys.php';
     $remoteKeys = @file_get_contents($remoteKeysUrl);
     if ($remoteKeys === false) {
-        $errorMessage = "Unable to fetch remote keys. Program locked.";
-        echo $errorMessage . "\n";
-        error_log($errorMessage . "\n", 3, $logFile);
-        die($errorMessage);
+        die("Unable to fetch remote keys. Program locked.");
     }
 
     echo "Raw remote key data: " . $remoteKeys . "\n";
-    error_log("Raw remote key data: " . $remoteKeys . "\n", 3, $logFile);
 
-    // Extract the array from the PHP code
+    // Extract and evaluate the PHP array
     preg_match('/\$hashedKeys\s*=\s*(\[.*?\]);/s', $remoteKeys, $matches);
     if (isset($matches[1])) {
         $keyList = eval('return ' . $matches[1] . ';');
         if (!is_array($keyList)) {
-            $errorMessage = "Invalid remote key data. Unable to parse array.";
-            echo $errorMessage . "\n";
-            error_log($errorMessage . "\n", 3, $logFile);
-            die($errorMessage);
+            die("Invalid remote key data. Unable to parse array.");
         }
     } else {
-        $errorMessage = "Unable to extract key list from remote data.";
-        echo $errorMessage . "\n";
-        error_log($errorMessage . "\n", 3, $logFile);
-        die($errorMessage);
+        die("Unable to extract key list from remote data.");
     }
 
     foreach ($keyList as $hashedKey) {
         if (password_verify($localKey, $hashedKey)) {
-            $successMessage = "Valid deployment confirmed.";
-            echo $successMessage . "\n";
-            error_log($successMessage . "\n", 3, $logFile);
+            echo "Valid deployment confirmed.\n";
             return true;
         }
     }
 
-    $errorMessage = "Invalid deployment. Key used: " . $localKey;
-    echo $errorMessage . "\n";
-    error_log($errorMessage . "\n", 3, $logFile);
-    die("Program locked.");
+    die("Invalid deployment. Program locked.");
 }
 
 function authenticate_user($conn, $username, $password) {
