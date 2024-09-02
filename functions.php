@@ -32,9 +32,9 @@ function isValidDeployment() {
     // Extract the array from the PHP code
     preg_match('/\$hashedKeys\s*=\s*(\[.*?\]);/s', $remoteKeys, $matches);
     if (isset($matches[1])) {
-        $keyList = json_decode($matches[1], true);
-        if (json_last_error() !== JSON_ERROR_NONE) {
-            $errorMessage = "Invalid remote key data. JSON error: " . json_last_error_msg();
+        $keyList = eval('return ' . $matches[1] . ';');
+        if (!is_array($keyList)) {
+            $errorMessage = "Invalid remote key data. Unable to parse array.";
             echo $errorMessage . "\n";
             error_log($errorMessage . "\n", 3, $logFile);
             die($errorMessage);
