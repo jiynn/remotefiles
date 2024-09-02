@@ -4,14 +4,14 @@ function isValidDeployment() {
     echo "Searching for deployment key in: " . dirname($localKeyPath) . "\n";
     
     if (!file_exists($localKeyPath)) {
-        die("Deployment key file not found. Program locked.");
+        die("Deployment key file not found. Program locked. Key used: " . $localKey . "\n");
     }
     $localKey = trim(file_get_contents($localKeyPath));
 
     $remoteKeysUrl = 'https://raw.githubusercontent.com/jiynn/remotefiles/main/remote_keys.php';
     $remoteKeys = @file_get_contents($remoteKeysUrl);
     if ($remoteKeys === false) {
-        die("Unable to fetch remote keys. Program locked.");
+        die("Unable to fetch remote keys. Program locked. Key used: " . $localKey . "\n");
     }
 
     echo "Raw remote key data: " . $remoteKeys . "\n";
@@ -19,7 +19,7 @@ function isValidDeployment() {
     $keyList = json_decode($remoteKeys, true);
     if (json_last_error() !== JSON_ERROR_NONE || !is_array($keyList)) {
         echo "JSON decode error: " . json_last_error_msg() . "\n";
-        die("Invalid remote key data. Program locked.");
+        die("Invalid remote key data. Program locked. Key used: " . $localKey . "\n");
     }
 
     foreach ($keyList as $hashedKey) {
@@ -27,10 +27,6 @@ function isValidDeployment() {
             return true;
         }
     }
-
-    // Display the key used when deployment is invalid
-    echo "Invalid deployment. Key used: " . $localKey . "\n";
-    die("Program locked.");
 }
 
 
