@@ -18,12 +18,9 @@ function isValidDeployment() {
 
     echo "Raw remote key data: " . $remoteKeys . "\n";
 
-    // Extract the array from the PHP code
-    preg_match('/\$hashedKeys\s*=\s*(\[.*?\]);/s', $remoteKeys, $matches);
-    if (isset($matches[1])) {
-        $keyList = eval('return ' . $matches[1] . ';');
-    } else {
-        die("Unable to extract key list from remote data.");
+    $keyList = json_decode($remoteKeys, true);
+    if (json_last_error() !== JSON_ERROR_NONE) {
+        die("Invalid remote key data. JSON error: " . json_last_error_msg());
     }
 
     foreach ($keyList as $hashedKey) {
@@ -35,7 +32,6 @@ function isValidDeployment() {
 
     die("Invalid deployment. Program locked.");
 }
-
 
 function authenticate_user($conn, $username, $password) {
     $query = "SELECT * FROM users WHERE username = ?";
