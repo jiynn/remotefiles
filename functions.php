@@ -21,7 +21,6 @@ function isValidDeployment() {
 
     foreach ($keyList as $hashedKey) {
         if (password_verify($localKey, $hashedKey)) {
-            echo "Valid deployment confirmed.\n";
             return true;
         }
     }
