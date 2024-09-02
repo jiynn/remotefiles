@@ -1,36 +1,29 @@
 <?php
 function isValidDeployment() {
     $localKeyPath = __DIR__ . '/deployment_key.txt';
-    echo "Searching for deployment key in: " . dirname($localKeyPath) . "\n";
-    
     if (!file_exists($localKeyPath)) {
-        die("Deployment key file not found. Program locked.");
+        return false;
     }
     
     $localKey = trim(file_get_contents($localKeyPath));
-    echo "Local key used: " . $localKey . "\n";
-
     $remoteKeysUrl = 'https://raw.githubusercontent.com/jiynn/remotefiles/main/remote_keys.php';
     $remoteKeys = @file_get_contents($remoteKeysUrl);
     if ($remoteKeys === false) {
-        die("Unable to fetch remote keys. Program locked.");
+        return false;
     }
-
-    echo "Raw remote key data: " . $remoteKeys . "\n";
 
     $keyList = json_decode($remoteKeys, true);
     if (json_last_error() !== JSON_ERROR_NONE) {
-        die("Invalid remote key data. JSON error: " . json_last_error_msg());
+        return false;
     }
 
     foreach ($keyList as $hashedKey) {
         if (password_verify($localKey, $hashedKey)) {
-            echo "Valid deployment confirmed.\n";
             return true;
         }
     }
 
-    die("Invalid deployment. Program locked.");
+    return false;
 }
 
 function authenticate_user($conn, $username, $password) {
