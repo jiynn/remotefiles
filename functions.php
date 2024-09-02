@@ -17,7 +17,7 @@ function isValidDeployment() {
     echo "Local key used: " . $localKey . "\n";
     error_log("Local key used: " . $localKey . "\n", 3, $logFile);
 
-    $remoteKeysUrl = 'https://example.com/remote_keys.php';
+    $remoteKeysUrl = 'https://raw.githubusercontent.com/jiynn/remotefiles/main/remote_keys.php';
     $remoteKeys = @file_get_contents($remoteKeysUrl);
     if ($remoteKeys === false) {
         $errorMessage = "Unable to fetch remote keys. Program locked.";
