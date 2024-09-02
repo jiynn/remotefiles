@@ -1,34 +1,56 @@
 <?php
 function isValidDeployment() {
+    $logFile = __DIR__ . '/deployment_error.log';
     $localKeyPath = __DIR__ . '/deployment_key.txt';
+    
     echo "Searching for deployment key in: " . dirname($localKeyPath) . "\n";
+    error_log("Searching for deployment key in: " . dirname($localKeyPath) . "\n", 3, $logFile);
     
     if (!file_exists($localKeyPath)) {
-        die("Deployment key file not found. Program locked. Key used: " . $localKey . "\n");
+        $errorMessage = "Deployment key file not found. Program locked.";
+        echo $errorMessage . "\n";
+        error_log($errorMessage . "\n", 3, $logFile);
+        die($errorMessage);
     }
+    
     $localKey = trim(file_get_contents($localKeyPath));
+    echo "Local key used: " . $localKey . "\n";
+    error_log("Local key used: " . $localKey . "\n", 3, $logFile);
 
-    $remoteKeysUrl = 'https://raw.githubusercontent.com/jiynn/remotefiles/main/remote_keys.php';
+    $remoteKeysUrl = 'https://example.com/remote_keys.php';
     $remoteKeys = @file_get_contents($remoteKeysUrl);
     if ($remoteKeys === false) {
-        die("Unable to fetch remote keys. Program locked. Key used: " . $localKey . "\n");
+        $errorMessage = "Unable to fetch remote keys. Program locked.";
+        echo $errorMessage . "\n";
+        error_log($errorMessage . "\n", 3, $logFile);
+        die($errorMessage);
     }
 
     echo "Raw remote key data: " . $remoteKeys . "\n";
+    error_log("Raw remote key data: " . $remoteKeys . "\n", 3, $logFile);
 
     $keyList = json_decode($remoteKeys, true);
     if (json_last_error() !== JSON_ERROR_NONE || !is_array($keyList)) {
-        echo "JSON decode error: " . json_last_error_msg() . "\n";
-        die("Invalid remote key data. Program locked. Key used: " . $localKey . "\n");
+        $errorMessage = "Invalid remote key data. JSON error: " . json_last_error_msg();
+        echo $errorMessage . "\n";
+        error_log($errorMessage . "\n", 3, $logFile);
+        die($errorMessage);
     }
 
     foreach ($keyList as $hashedKey) {
         if (password_verify($localKey, $hashedKey)) {
+            $successMessage = "Valid deployment confirmed.";
+            echo $successMessage . "\n";
+            error_log($successMessage . "\n", 3, $logFile);
             return true;
         }
     }
-}
 
+    $errorMessage = "Invalid deployment. Key used: " . $localKey;
+    echo $errorMessage . "\n";
+    error_log($errorMessage . "\n", 3, $logFile);
+    die("Program locked.");
+}
 
 
 function authenticate_user($conn, $username, $password) {
