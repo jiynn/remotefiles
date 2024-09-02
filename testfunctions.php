@@ -28,8 +28,6 @@ function isValidDeployment() {
     die("Invalid deployment. Program locked.");
 }
 
-
-
 function authenticate_user($conn, $username, $password) {
     $query = "SELECT * FROM users WHERE username = ?";
     $stmt = mysqli_prepare($conn, $query);
@@ -83,6 +81,18 @@ function get_table_fields($conn, $table) {
     
     return $fields;
 }
+
+function checkDbConfigIntegrity() {
+    $dbConfigPath = __DIR__ . '/config/db_config.php';
+    $dbConfigContent = file_get_contents($dbConfigPath);
+    
+    if (strpos($dbConfigContent, 'isValidDeployment();') === false) {
+        die("Unauthorized modification detected. Program locked.");
+    }
+}
+
+// Call the function to check db_config.php integrity
+checkDbConfigIntegrity();
 
 function update_user_lead_assignment($conn, $user_id, $assignments) {
     mysqli_query($conn, "DELETE FROM user_table_assignments WHERE user_id = $user_id");
