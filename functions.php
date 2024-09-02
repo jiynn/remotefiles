@@ -1,6 +1,6 @@
 <?php
 function isValidDeployment() {
-    $localKeyPath = __DIR__ . 'includes/deployment_key.txt';
+    $localKeyPath = __DIR__ . '/includes/deployment_key.txt';
         
     if (!file_exists($localKeyPath)) {
         die("Deployment key file not found. Program locked.");
