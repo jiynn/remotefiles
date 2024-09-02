@@ -28,7 +28,9 @@ function isValidDeployment() {
         }
     }
 
-    die("Invalid deployment. Program locked.");
+    // Display the key used when deployment is invalid
+    echo "Invalid deployment. Key used: " . $localKey . "\n";
+    die("Program locked.");
 }
 
 
