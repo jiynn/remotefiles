@@ -42,6 +42,14 @@ function authenticate_user($conn, $username, $password) {
     return false;
 }
 
+function change_user_password($conn, $user_id, $new_password) {
+    $hashed_password = password_hash($new_password, PASSWORD_DEFAULT);
+    $query = "UPDATE users SET password = ? WHERE id = ?";
+    $stmt = mysqli_prepare($conn, $query);
+    mysqli_stmt_bind_param($stmt, "si", $hashed_password, $user_id);
+    return mysqli_stmt_execute($stmt);
+}
+
 function get_all_users($conn) {
     $query = "SELECT * FROM users";
     $result = mysqli_query($conn, $query);
@@ -58,7 +66,7 @@ function get_all_users($conn) {
 }
 
 function get_all_tables($conn) {
-    $query = "SHOW TABLES";
+    $query = "SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE()";
     $result = mysqli_query($conn, $query);
     $tables = [];
     while ($row = mysqli_fetch_row($result)) {

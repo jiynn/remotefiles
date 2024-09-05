@@ -66,7 +66,7 @@ function get_all_users($conn) {
 }
 
 function get_all_tables($conn) {
-    $query = "SHOW TABLES";
+    $query = "SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE()";
     $result = mysqli_query($conn, $query);
     $tables = [];
     while ($row = mysqli_fetch_row($result)) {
