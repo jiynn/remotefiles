@@ -144,18 +144,24 @@ function get_lead_assignment_stats($mysqli, $filters) {
     $params = [];
     $types = '';
 
-    // Assuming you have a column named 'user_id' instead of 'assigned_to'
     if (isset($filters['assigned_to']) && $filters['assigned_to'] !== '') {
-        $where_clauses[] = "user_id = ?";
+        $where_clauses[] = "assigned_to = ?";
         $params[] = $filters['assigned_to'];
-        $types .= 'i'; // Assuming user_id is an integer
+        $types .= 'i'; // Assuming assigned_to is an integer (user_id)
     }
 
     // Add other filters as needed
+    if (isset($filters['table']) && $filters['table'] !== '') {
+        $table = mysqli_real_escape_string($mysqli, $filters['table']);
+    } else {
+        // Default to the first table if not specified
+        $tables = get_all_tables($mysqli);
+        $table = $tables[0];
+    }
 
     $where_sql = !empty($where_clauses) ? 'WHERE ' . implode(' AND ', $where_clauses) : '';
 
-    $sql = "SELECT COUNT(*) as count FROM leads $where_sql";
+    $sql = "SELECT COUNT(*) as count FROM `$table` $where_sql";
     
     $stmt = mysqli_prepare($mysqli, $sql);
     
