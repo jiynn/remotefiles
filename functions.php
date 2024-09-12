@@ -160,7 +160,7 @@ function get_lead_assignment_stats($mysqli, $users) {
             $user_stat['assignments'][] = [
                 'table' => $table,
                 'limit' => $limit,
-                'assigned' => $count,
+                'assigned_to' => $count,
                 'zip_codes' => $zip_codes
             ];
         }
