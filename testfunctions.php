@@ -139,39 +139,35 @@ function delete_user($conn, $user_id) {
     return mysqli_stmt_execute($stmt);
 }
 
-function get_lead_assignment_stats($conn, $users) {
-    $stats = [];
-    foreach ($users as $user) {
-        $assignments = mysqli_query($conn, "SELECT * FROM user_table_assignments WHERE user_id = {$user['id']}");
-        $user_stats = [];
-        while ($assignment = mysqli_fetch_assoc($assignments)) {
-            $count_query = "SELECT COUNT(*) as count FROM `{$assignment['assigned_table']}` WHERE assigned_to = {$user['id']}";
-            if (!empty($assignment['zip_codes'])) {
-                $zips = explode(',', $assignment['zip_codes']);
-                $zip_placeholders = implode(',', array_fill(0, count($zips), '?'));
-                $count_query .= " AND zip IN ($zip_placeholders)";
-            }
-            $count_stmt = mysqli_prepare($conn, $count_query);
-            if (!empty($assignment['zip_codes'])) {
-                $types = str_repeat('s', count($zips));
-                mysqli_stmt_bind_param($count_stmt, $types, ...$zips);
-            }
-            mysqli_stmt_execute($count_stmt);
-            $result = mysqli_stmt_get_result($count_stmt);
-            $count = mysqli_fetch_assoc($result)['count'];
-            $user_stats[] = [
-                'table' => $assignment['assigned_table'],
-                'limit' => $assignment['lead_limit'],
-                'assigned' => $count,
-                'zip_codes' => $assignment['zip_codes']
-            ];
-        }
-        $stats[] = [
-            'username' => $user['username'],
-            'assignments' => $user_stats
-        ];
+function get_lead_assignment_stats($mysqli, $filters) {
+    $where_clauses = [];
+    $params = [];
+    $types = '';
+
+    // Assuming you have a column named 'user_id' instead of 'assigned_to'
+    if (isset($filters['assigned_to']) && $filters['assigned_to'] !== '') {
+        $where_clauses[] = "user_id = ?";
+        $params[] = $filters['assigned_to'];
+        $types .= 'i'; // Assuming user_id is an integer
     }
-    return $stats;
+
+    // Add other filters as needed
+
+    $where_sql = !empty($where_clauses) ? 'WHERE ' . implode(' AND ', $where_clauses) : '';
+
+    $sql = "SELECT COUNT(*) as count FROM leads $where_sql";
+    
+    $stmt = mysqli_prepare($mysqli, $sql);
+    
+    if (!empty($params)) {
+        mysqli_stmt_bind_param($stmt, $types, ...$params);
+    }
+    
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    $row = mysqli_fetch_assoc($result);
+    
+    return $row['count'];
 }
 
 function assign_leads($conn) {
