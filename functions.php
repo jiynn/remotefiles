@@ -153,14 +153,22 @@ function get_lead_assignment_stats($mysqli, $users) {
             $limit = $assignment['lead_limit'];
             $zip_codes = $assignment['zip_codes'];
             
-            $count_query = "SELECT COUNT(*) as count FROM `$table` WHERE assigned_to = {$user['id']}";
+            // Check if the 'assigned_to' column exists in the table
+            $check_column = mysqli_query($mysqli, "SHOW COLUMNS FROM `$table` LIKE 'assigned_to'");
+            if (mysqli_num_rows($check_column) > 0) {
+                $count_query = "SELECT COUNT(*) as count FROM `$table` WHERE assigned_to = {$user['id']}";
+            } else {
+                // If 'assigned_to' doesn't exist, count all rows
+                $count_query = "SELECT COUNT(*) as count FROM `$table`";
+            }
+            
             $count_result = mysqli_query($mysqli, $count_query);
             $count = mysqli_fetch_assoc($count_result)['count'];
             
             $user_stat['assignments'][] = [
                 'table' => $table,
                 'limit' => $limit,
-                'assigned_to' => $count,
+                'assigned' => $count,
                 'zip_codes' => $zip_codes
             ];
         }
