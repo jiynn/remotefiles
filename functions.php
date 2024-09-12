@@ -153,8 +153,7 @@ function get_lead_assignment_stats($mysqli, $users) {
             $limit = $assignment['lead_limit'];
             $zip_codes = $assignment['zip_codes'];
             
-            // Use 'user_id' instead of 'assigned_to'
-            $count_query = "SELECT COUNT(*) as count FROM `$table` WHERE user_id = {$user['id']}";
+            $count_query = "SELECT COUNT(*) as count FROM `$table` WHERE assigned_to = {$user['id']}";
             $count_result = mysqli_query($mysqli, $count_query);
             $count = mysqli_fetch_assoc($count_result)['count'];
             
