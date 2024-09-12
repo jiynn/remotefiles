@@ -139,41 +139,36 @@ function delete_user($conn, $user_id) {
     return mysqli_stmt_execute($stmt);
 }
 
-function get_lead_assignment_stats($mysqli, $filters) {
-    $where_clauses = [];
-    $params = [];
-    $types = '';
-
-    if (isset($filters['assigned_to']) && $filters['assigned_to'] !== '') {
-        $where_clauses[] = "assigned_to = ?";
-        $params[] = $filters['assigned_to'];
-        $types .= 'i'; // Assuming assigned_to is an integer (user_id)
+function get_lead_assignment_stats($mysqli, $users) {
+    $stats = [];
+    foreach ($users as $user) {
+        $user_stat = [
+            'username' => $user['username'],
+            'assignments' => []
+        ];
+        
+        $assignments = mysqli_query($mysqli, "SELECT * FROM user_table_assignments WHERE user_id = {$user['id']}");
+        while ($assignment = mysqli_fetch_assoc($assignments)) {
+            $table = $assignment['assigned_table'];
+            $limit = $assignment['lead_limit'];
+            $zip_codes = $assignment['zip_codes'];
+            
+            $count_query = "SELECT COUNT(*) as count FROM `$table` WHERE assigned_to = {$user['id']}";
+            $count_result = mysqli_query($mysqli, $count_query);
+            $count = mysqli_fetch_assoc($count_result)['count'];
+            
+            $user_stat['assignments'][] = [
+                'table' => $table,
+                'limit' => $limit,
+                'assigned' => $count,
+                'zip_codes' => $zip_codes
+            ];
+        }
+        
+        $stats[] = $user_stat;
     }
-
-    // Add other filters as needed
-    if (isset($filters['table']) && $filters['table'] !== '') {
-        $table = mysqli_real_escape_string($mysqli, $filters['table']);
-    } else {
-        // Default to the first table if not specified
-        $tables = get_all_tables($mysqli);
-        $table = $tables[0];
-    }
-
-    $where_sql = !empty($where_clauses) ? 'WHERE ' . implode(' AND ', $where_clauses) : '';
-
-    $sql = "SELECT COUNT(*) as count FROM `$table` $where_sql";
     
-    $stmt = mysqli_prepare($mysqli, $sql);
-    
-    if (!empty($params)) {
-        mysqli_stmt_bind_param($stmt, $types, ...$params);
-    }
-    
-    mysqli_stmt_execute($stmt);
-    $result = mysqli_stmt_get_result($stmt);
-    $row = mysqli_fetch_assoc($result);
-    
-    return $row['count'];
+    return $stats;
 }
 
 function assign_leads($conn) {
