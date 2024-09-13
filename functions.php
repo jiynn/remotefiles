@@ -142,6 +142,12 @@ function delete_user($conn, $user_id) {
 function get_lead_assignment_stats($mysqli, $users) {
     $stats = [];
     foreach ($users as $user) {
+        // Check connection before each query
+        if (!mysqli_ping($mysqli)) {
+            mysqli_close($mysqli);
+            $mysqli = new mysqli(DB_HOST, DB_USER, DB_PASS, DB_NAME);
+        }
+
         $user_stat = [
             'username' => $user['username'],
             'assignments' => []
@@ -156,10 +162,10 @@ function get_lead_assignment_stats($mysqli, $users) {
             // Check if the 'assigned_to' column exists in the table
             $check_column = mysqli_query($mysqli, "SHOW COLUMNS FROM `$table` LIKE 'assigned_to'");
             if (mysqli_num_rows($check_column) > 0) {
-                $count_query = "SELECT COUNT(*) as count FROM `$table` WHERE assigned_to = {$user['id']}";
+                $count_query = "SELECT COUNT(*) as count FROM `$table` WHERE assigned_to = {$user['id']} LIMIT 1";
             } else {
                 // If 'assigned_to' doesn't exist, count all rows
-                $count_query = "SELECT COUNT(*) as count FROM `$table`";
+                $count_query = "SELECT COUNT(*) as count FROM `$table` LIMIT 1";
             }
             
             $count_result = mysqli_query($mysqli, $count_query);
