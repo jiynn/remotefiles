@@ -144,18 +144,40 @@ function get_lead_assignment_stats($mysqli, $users) {
     foreach ($users as $user) {
         // Check connection and reconnect if necessary
         if (!$mysqli->ping()) {
+            $mysqli->close();
             $mysqli = new mysqli(DB_HOST, DB_USER, DB_PASS, DB_NAME);
+            if ($mysqli->connect_error) {
+                throw new Exception("Failed to reconnect to database: " . $mysqli->connect_error);
+            }
         }
         
-        // Rest of the function code remains the same
         $user_stat = [
             'username' => $user['username'],
             'assignments' => []
         ];
         
-        $assignments = mysqli_query($mysqli, "SELECT * FROM user_table_assignments WHERE user_id = {$user['id']}");
-        while ($assignment = mysqli_fetch_assoc($assignments)) {
-            // Existing code for processing assignments
+        $assignments = $mysqli->query("SELECT * FROM user_table_assignments WHERE user_id = {$user['id']}");
+        while ($assignment = $assignments->fetch_assoc()) {
+            $table = $assignment['assigned_table'];
+            $limit = $assignment['lead_limit'];
+            $zip_codes = $assignment['zip_codes'];
+            
+            $check_column = $mysqli->query("SHOW COLUMNS FROM `$table` LIKE 'assigned_to'");
+            if ($check_column->num_rows > 0) {
+                $count_query = "SELECT COUNT(*) as count FROM `$table` WHERE assigned_to = {$user['id']} LIMIT 1";
+            } else {
+                $count_query = "SELECT COUNT(*) as count FROM `$table` LIMIT 1";
+            }
+            
+            $count_result = $mysqli->query($count_query);
+            $count = $count_result->fetch_assoc()['count'];
+            
+            $user_stat['assignments'][] = [
+                'table' => $table,
+                'limit' => $limit,
+                'assigned' => $count,
+                'zip_codes' => $zip_codes
+            ];
         }
         
         $stats[] = $user_stat;
