@@ -44,7 +44,7 @@ function authenticate_user($conn, $username, $password) {
     return false;
 }
 
-function add_favicon() {
+function add_favicon(): void {
     echo '<link rel="icon" type="image/x-icon" href="/images/icon.ico">';
 }
 
