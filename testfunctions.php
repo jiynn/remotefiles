@@ -44,13 +44,8 @@ function authenticate_user($conn, $username, $password) {
     return false;
 }
 
-function leadiv_head() {
-    ?>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="icon" type="image/x-icon" href="<?php echo get_template_directory_uri(); ?>/images/icon.ico">
-    <?php wp_head(); ?>
-    <?php
+function add_favicon() {
+    echo '<link rel="icon" type="image/x-icon" href="/images/icon.ico">';
 }
 
 function change_user_password($conn, $user_id, $new_password) {
