@@ -1,4 +1,7 @@
 <?php
+
+define('LARGE_DATASETS', ['general consumer']);
+
 function isValidDeployment() {
     $localKeyPath = __DIR__ . '/includes/deployment_key.txt';
         
