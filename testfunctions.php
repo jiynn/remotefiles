@@ -225,7 +225,7 @@ function assign_leads($conn) {
             $zip_codes = $assignment['zip_codes'];
 
             // Assign new leads in batches
-            $batch_size = 1000;
+            $batch_size = 5000;
             $assigned_batch_count = 0;
             while ($assigned_batch_count < $limit) {
                 $current_batch = min($batch_size, $limit - $assigned_batch_count);
