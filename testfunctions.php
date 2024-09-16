@@ -177,47 +177,86 @@ function get_lead_assignment_stats($conn, $users) {
 function assign_leads($conn) {
     $users = get_all_users($conn);
     $assigned_count = 0;
-    $cleared_count = 0;
 
     foreach ($users as $user) {
-        $assignments = mysqli_query($conn, "SELECT * FROM user_table_assignments WHERE user_id = {$user['id']}");
-        while ($assignment = mysqli_fetch_assoc($assignments)) {
+        $assignments = get_user_assignments($conn, $user['id']);
+        foreach ($assignments as $assignment) {
             $table = $assignment['assigned_table'];
             $limit = $assignment['lead_limit'];
-            $zip_codes = $assignment['zip_codes'];
+            $current_assigned = get_assigned_lead_count($conn, $user['id'], $table);
 
-            // Clear existing leads
-            $clear_query = "UPDATE `$table` SET assigned_to = NULL WHERE assigned_to = ?";
-            $clear_stmt = mysqli_prepare($conn, $clear_query);
-            mysqli_stmt_bind_param($clear_stmt, "i", $user['id']);
-            mysqli_stmt_execute($clear_stmt);
-            $cleared_count += mysqli_affected_rows($conn);
-
-            // Assign new leads
-            $assign_query = "UPDATE `$table` SET assigned_to = ? WHERE assigned_to IS NULL";
-            if (!empty($zip_codes)) {
-                $zips = explode(',', $zip_codes);
-                $zip_placeholders = implode(',', array_fill(0, count($zips), '?'));
-                $assign_query .= " AND zip IN ($zip_placeholders)";
+            if ($current_assigned < $limit) {
+                $to_assign = $limit - $current_assigned;
+                $assigned = assign_leads_to_user($conn, $user['id'], $table, $to_assign, $assignment['zip_codes']);
+                $assigned_count += $assigned;
             }
-            $assign_query .= " ORDER BY RAND() LIMIT ?";
-            
-            $assign_stmt = mysqli_prepare($conn, $assign_query);
-            $types = "i" . (empty($zip_codes) ? "" : str_repeat('s', count($zips))) . "i";
-            $params = array($user['id']);
-            if (!empty($zip_codes)) {
-                $params = array_merge($params, $zips);
-            }
-            $params[] = $limit;
-            mysqli_stmt_bind_param($assign_stmt, $types, ...$params);
-            mysqli_stmt_execute($assign_stmt);
-            $assigned_count += mysqli_affected_rows($conn);
         }
     }
 
     return [
-        'message' => "Assigned $assigned_count new leads and cleared $cleared_count old leads.",
-        'assigned' => $assigned_count,
+        'message' => "Assigned $assigned_count new leads.",
+        'assigned' => $assigned_count
+    ];
+}
+
+function clear_leads($conn) {
+    $users = get_all_users($conn);
+    $cleared_count = 0;
+
+    foreach ($users as $user) {
+        $assignments = get_user_assignments($conn, $user['id']);
+        foreach ($assignments as $assignment) {
+            $table = $assignment['assigned_table'];
+            $limit = $assignment['lead_limit'];
+            $current_assigned = get_assigned_lead_count($conn, $user['id'], $table);
+
+            if ($current_assigned > $limit) {
+                $to_clear = $current_assigned - $limit;
+                $cleared = clear_random_user_leads($conn, $user['id'], $table, $to_clear);
+                $cleared_count += $cleared;
+            }
+        }
+    }
+
+    return [
+        'message' => "Cleared $cleared_count leads.",
         'cleared' => $cleared_count
     ];
+}
+
+function get_assigned_lead_count($conn, $user_id, $table) {
+    $query = "SELECT COUNT(*) as count FROM `$table` WHERE assigned_to = ?";
+    $stmt = mysqli_prepare($conn, $query);
+    mysqli_stmt_bind_param($stmt, "i", $user_id);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    $row = mysqli_fetch_assoc($result);
+    return $row['count'];
+}
+
+function assign_leads_to_user($conn, $user_id, $table, $count, $zip_codes) {
+    $zip_condition = "";
+    if (!empty($zip_codes)) {
+        $zip_array = explode(',', $zip_codes);
+        $zip_placeholders = implode(',', array_fill(0, count($zip_array), '?'));
+        $zip_condition = "AND zip IN ($zip_placeholders)";
+    }
+
+    $query = "UPDATE `$table` SET assigned_to = ? WHERE assigned_to IS NULL $zip_condition ORDER BY RAND() LIMIT ?";
+    $stmt = mysqli_prepare($conn, $query);
+
+    $types = "i" . str_repeat('s', count($zip_array)) . "i";
+    $params = array_merge([$user_id], $zip_array, [$count]);
+    mysqli_stmt_bind_param($stmt, $types, ...$params);
+
+    mysqli_stmt_execute($stmt);
+    return mysqli_stmt_affected_rows($stmt);
+}
+
+function clear_random_user_leads($conn, $user_id, $table, $count) {
+    $query = "UPDATE `$table` SET assigned_to = NULL WHERE assigned_to = ? ORDER BY RAND() LIMIT ?";
+    $stmt = mysqli_prepare($conn, $query);
+    mysqli_stmt_bind_param($stmt, "ii", $user_id, $count);
+    mysqli_stmt_execute($stmt);
+    return mysqli_stmt_affected_rows($stmt);
 }
