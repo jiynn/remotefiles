@@ -112,7 +112,9 @@ function update_user_lead_assignment($conn, $user_id, $assignments) {
         $delete_query = "DELETE FROM user_table_assignments WHERE user_id = ?";
         $delete_stmt = mysqli_prepare($conn, $delete_query);
         mysqli_stmt_bind_param($delete_stmt, "i", $user_id);
-        mysqli_stmt_execute($delete_stmt);
+        if (!mysqli_stmt_execute($delete_stmt)) {
+            throw new Exception("Error deleting existing assignments: " . mysqli_stmt_error($delete_stmt));
+        }
 
         // Insert new assignments
         $insert_query = "INSERT INTO user_table_assignments (user_id, assigned_table, lead_limit, zip_codes) VALUES (?, ?, ?, ?)";
@@ -120,7 +122,9 @@ function update_user_lead_assignment($conn, $user_id, $assignments) {
 
         foreach ($assignments as $assignment) {
             mysqli_stmt_bind_param($insert_stmt, "isis", $user_id, $assignment['table'], $assignment['limit'], $assignment['zip_codes']);
-            mysqli_stmt_execute($insert_stmt);
+            if (!mysqli_stmt_execute($insert_stmt)) {
+                throw new Exception("Error inserting new assignment: " . mysqli_stmt_error($insert_stmt));
+            }
 
             if (in_array($assignment['table'], LARGE_DATASETS)) {
                 create_background_job($conn, 'assign_large_dataset', [
