@@ -216,7 +216,6 @@ function get_lead_assignment_stats($conn, $users) {
 function assign_leads($conn) {
     $users = get_all_users($conn);
     $assigned_count = 0;
-    $cleared_count = 0;
 
     foreach ($users as $user) {
         $assignments = mysqli_query($conn, "SELECT * FROM user_table_assignments WHERE user_id = {$user['id']}");
@@ -224,13 +223,6 @@ function assign_leads($conn) {
             $table = $assignment['assigned_table'];
             $limit = $assignment['lead_limit'];
             $zip_codes = $assignment['zip_codes'];
-
-            // Clear existing leads
-            $clear_query = "UPDATE `$table` SET assigned_to = NULL WHERE assigned_to = ?";
-            $clear_stmt = mysqli_prepare($conn, $clear_query);
-            mysqli_stmt_bind_param($clear_stmt, "i", $user['id']);
-            mysqli_stmt_execute($clear_stmt);
-            $cleared_count += mysqli_affected_rows($conn);
 
             // Assign new leads in batches
             $batch_size = 1000;
@@ -247,6 +239,11 @@ function assign_leads($conn) {
                 $assign_query .= " ORDER BY RAND() LIMIT ?";
                 
                 $assign_stmt = mysqli_prepare($conn, $assign_query);
+                if ($assign_stmt === false) {
+                    error_log("Error preparing statement: " . mysqli_error($conn));
+                    continue;
+                }
+                
                 $types = "i" . (empty($zip_codes) ? "" : str_repeat('s', count($zips))) . "i";
                 $params = array($user['id']);
                 if (!empty($zip_codes)) {
@@ -254,11 +251,21 @@ function assign_leads($conn) {
                 }
                 $params[] = $current_batch;
                 mysqli_stmt_bind_param($assign_stmt, $types, ...$params);
-                mysqli_stmt_execute($assign_stmt);
-                $assigned_batch_count += mysqli_affected_rows($conn);
-                $assigned_count += mysqli_affected_rows($conn);
+                
+                $result = mysqli_stmt_execute($assign_stmt);
+                if ($result === false) {
+                    error_log("Error executing statement: " . mysqli_stmt_error($assign_stmt));
+                    mysqli_stmt_close($assign_stmt);
+                    continue;
+                }
+                
+                $affected_rows = mysqli_stmt_affected_rows($assign_stmt);
+                $assigned_batch_count += $affected_rows;
+                $assigned_count += $affected_rows;
 
-                if (mysqli_affected_rows($conn) < $current_batch) {
+                mysqli_stmt_close($assign_stmt);
+
+                if ($affected_rows < $current_batch) {
                     // No more unassigned leads available
                     break;
                 }
@@ -270,8 +277,7 @@ function assign_leads($conn) {
     }
 
     return [
-        'message' => "Assigned $assigned_count new leads and cleared $cleared_count old leads.",
-        'assigned' => $assigned_count,
-        'cleared' => $cleared_count
+        'message' => "Assigned $assigned_count new leads.",
+        'assigned' => $assigned_count
     ];
 }
