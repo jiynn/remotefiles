@@ -232,25 +232,40 @@ function assign_leads($conn) {
             mysqli_stmt_execute($clear_stmt);
             $cleared_count += mysqli_affected_rows($conn);
 
-            // Assign new leads
-            $assign_query = "UPDATE `$table` SET assigned_to = ? WHERE assigned_to IS NULL";
-            if (!empty($zip_codes)) {
-                $zips = explode(',', $zip_codes);
-                $zip_placeholders = implode(',', array_fill(0, count($zips), '?'));
-                $assign_query .= " AND zip IN ($zip_placeholders)";
+            // Assign new leads in batches
+            $batch_size = 1000;
+            $assigned_batch_count = 0;
+            while ($assigned_batch_count < $limit) {
+                $current_batch = min($batch_size, $limit - $assigned_batch_count);
+                
+                $assign_query = "UPDATE `$table` SET assigned_to = ? WHERE assigned_to IS NULL";
+                if (!empty($zip_codes)) {
+                    $zips = explode(',', $zip_codes);
+                    $zip_placeholders = implode(',', array_fill(0, count($zips), '?'));
+                    $assign_query .= " AND zip IN ($zip_placeholders)";
+                }
+                $assign_query .= " ORDER BY RAND() LIMIT ?";
+                
+                $assign_stmt = mysqli_prepare($conn, $assign_query);
+                $types = "i" . (empty($zip_codes) ? "" : str_repeat('s', count($zips))) . "i";
+                $params = array($user['id']);
+                if (!empty($zip_codes)) {
+                    $params = array_merge($params, $zips);
+                }
+                $params[] = $current_batch;
+                mysqli_stmt_bind_param($assign_stmt, $types, ...$params);
+                mysqli_stmt_execute($assign_stmt);
+                $assigned_batch_count += mysqli_affected_rows($conn);
+                $assigned_count += mysqli_affected_rows($conn);
+
+                if (mysqli_affected_rows($conn) < $current_batch) {
+                    // No more unassigned leads available
+                    break;
+                }
+
+                // Allow a brief pause to prevent server overload
+                usleep(100000); // 0.1 second pause
             }
-            $assign_query .= " ORDER BY RAND() LIMIT ?";
-            
-            $assign_stmt = mysqli_prepare($conn, $assign_query);
-            $types = "i" . (empty($zip_codes) ? "" : str_repeat('s', count($zips))) . "i";
-            $params = array($user['id']);
-            if (!empty($zip_codes)) {
-                $params = array_merge($params, $zips);
-            }
-            $params[] = $limit;
-            mysqli_stmt_bind_param($assign_stmt, $types, ...$params);
-            mysqli_stmt_execute($assign_stmt);
-            $assigned_count += mysqli_affected_rows($conn);
         }
     }
 
