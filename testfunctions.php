@@ -53,10 +53,6 @@ function leadiv_head() {
     <?php
 }
 
-<head>
-    <?php leadiv_head(); ?>
-</head>
-
 function change_user_password($conn, $user_id, $new_password) {
     $hashed_password = password_hash($new_password, PASSWORD_DEFAULT);
     $query = "UPDATE users SET password = ? WHERE id = ?";
