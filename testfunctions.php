@@ -1,7 +1,4 @@
 <?php
-
-define('LARGE_DATASETS', ['general consumer']);
-
 function isValidDeployment() {
     $localKeyPath = __DIR__ . '/includes/deployment_key.txt';
         
@@ -106,47 +103,18 @@ function checkDbConfigIntegrity() {
 checkDbConfigIntegrity();
 
 function update_user_lead_assignment($conn, $user_id, $assignments) {
-    mysqli_begin_transaction($conn);
-    try {
-        // Delete existing assignments
-        $delete_query = "DELETE FROM user_table_assignments WHERE user_id = ?";
-        $delete_stmt = mysqli_prepare($conn, $delete_query);
-        mysqli_stmt_bind_param($delete_stmt, "i", $user_id);
-        mysqli_stmt_execute($delete_stmt);
-
-        // Insert new assignments
-        $insert_query = "INSERT INTO user_table_assignments (user_id, assigned_table, lead_limit, zip_codes) VALUES (?, ?, ?, ?)";
-        $insert_stmt = mysqli_prepare($conn, $insert_query);
-
-        foreach ($assignments as $assignment) {
-            mysqli_stmt_bind_param($insert_stmt, "isis", $user_id, $assignment['table'], $assignment['limit'], $assignment['zip_codes']);
-            mysqli_stmt_execute($insert_stmt);
-
-            if (in_array($assignment['table'], LARGE_DATASETS)) {
-                create_background_job($conn, 'assign_large_dataset', [
-                    'user_id' => $user_id,
-                    'table' => $assignment['table'],
-                    'limit' => $assignment['limit'],
-                    'zip_codes' => $assignment['zip_codes']
-                ]);
-            }
-        }
-
-        mysqli_commit($conn);
-        return true;
-    } catch (Exception $e) {
-        mysqli_rollback($conn);
-        error_log("Error updating user lead assignment: " . $e->getMessage());
-        return false;
+    mysqli_query($conn, "DELETE FROM user_table_assignments WHERE user_id = $user_id");
+    
+    foreach ($assignments as $assignment) {
+        $table = mysqli_real_escape_string($conn, $assignment['table']);
+        $limit = intval($assignment['limit']);
+        $zips = mysqli_real_escape_string($conn, $assignment['zip_codes']);
+        $query = "INSERT INTO user_table_assignments (user_id, assigned_table, lead_limit, zip_codes) 
+                  VALUES ($user_id, '$table', $limit, '$zips')";
+        mysqli_query($conn, $query);
     }
-}
-
-function create_background_job($conn, $job_type, $job_data) {
-    $query = "INSERT INTO background_jobs (job_type, job_data, status) VALUES (?, ?, 'pending')";
-    $stmt = mysqli_prepare($conn, $query);
-    $job_data_json = json_encode($job_data);
-    mysqli_stmt_bind_param($stmt, "ss", $job_type, $job_data_json);
-    mysqli_stmt_execute($stmt);
+    
+    return true;
 }
 
 function clear_user_leads($conn, $user_id, $assigned_table) {
