@@ -236,6 +236,7 @@ function get_assigned_lead_count($conn, $user_id, $table) {
 
 function assign_leads_to_user($conn, $user_id, $table, $count, $zip_codes) {
     $zip_condition = "";
+    $zip_array = [];
     if (!empty($zip_codes)) {
         $zip_array = explode(',', $zip_codes);
         $zip_placeholders = implode(',', array_fill(0, count($zip_array), '?'));
@@ -252,7 +253,6 @@ function assign_leads_to_user($conn, $user_id, $table, $count, $zip_codes) {
     mysqli_stmt_execute($stmt);
     return mysqli_stmt_affected_rows($stmt);
 }
-
 function clear_random_user_leads($conn, $user_id, $table, $count) {
     $query = "UPDATE `$table` SET assigned_to = NULL WHERE assigned_to = ? ORDER BY RAND() LIMIT ?";
     $stmt = mysqli_prepare($conn, $query);
