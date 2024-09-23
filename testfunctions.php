@@ -174,10 +174,14 @@ function get_lead_assignment_stats($conn, $users) {
     return $stats;
 }
 
-function assign_leads($conn, $stats) {
+function assign_leads($conn, $job_id) {
+    // Update job status to processing
+    mysqli_query($conn, "UPDATE background_jobs SET status = 'processing' WHERE id = $job_id");
+
+    $stats = get_lead_assignment_stats($conn, get_all_users($conn));
     $assigned_count = 0;
     $errors = [];
-    $batch_size = 1000; // Adjust this value based on your system's performance
+    $batch_size = 1000;
 
     foreach ($stats as $user_stat) {
         $user_id = $user_stat['user_id'];
@@ -192,33 +196,7 @@ function assign_leads($conn, $stats) {
 
             while ($to_assign > 0 && $total_leads > 0) {
                 $batch_limit = min($batch_size, $to_assign);
-                $random_indices = array_rand(range(0, $total_leads - 1), $batch_limit);
-                
-                if (!is_array($random_indices)) {
-                    $random_indices = [$random_indices];
-                }
-
-                $placeholders = implode(',', $random_indices);
-                $select_query = "SELECT lead_id FROM (
-                    SELECT lead_id, @row := @row + 1 AS row_num
-                    FROM $table, (SELECT @row := 0) AS r
-                    WHERE assigned_to IS NULL
-                    " . (!empty($zip_codes) ? "AND zip_code IN (" . implode(',', array_fill(0, count($zip_codes), '?')) . ")" : "") . "
-                ) AS numbered
-                WHERE row_num IN ($placeholders)";
-
-                $stmt = mysqli_prepare($conn, $select_query);
-                if (!empty($zip_codes)) {
-                    $types = str_repeat('s', count($zip_codes));
-                    mysqli_stmt_bind_param($stmt, $types, ...$zip_codes);
-                }
-                mysqli_stmt_execute($stmt);
-                $result = mysqli_stmt_get_result($stmt);
-
-                $lead_ids = [];
-                while ($lead = mysqli_fetch_assoc($result)) {
-                    $lead_ids[] = $lead['lead_id'];
-                }
+                $lead_ids = get_random_unassigned_leads($conn, $table, $zip_codes, $batch_limit);
 
                 if (!empty($lead_ids)) {
                     $update_query = "UPDATE $table SET assigned_to = ? WHERE lead_id IN (" . implode(',', $lead_ids) . ")";
@@ -237,12 +215,49 @@ function assign_leads($conn, $stats) {
         }
     }
 
+    // Update job status to completed
+    $message = "Assigned $assigned_count leads successfully." . (count($errors) > 0 ? " Errors: " . implode(", ", $errors) : "");
+    mysqli_query($conn, "UPDATE background_jobs SET status = 'completed', message = '" . mysqli_real_escape_string($conn, $message) . "' WHERE id = $job_id");
+
     return [
         'success' => true,
-        'message' => "Assigned $assigned_count leads successfully." . (count($errors) > 0 ? " Errors: " . implode(", ", $errors) : ""),
+        'message' => $message,
     ];
 }
 
+function queue_lead_assignment($conn) {
+    $query = "INSERT INTO background_jobs (job_type) VALUES ('assign_leads')";
+    mysqli_query($conn, $query);
+    $job_id = mysqli_insert_id($conn);
+    
+    // Trigger the background job processing
+    exec("php process_background_jobs.php > /dev/null 2>&1 &");
+    
+    return $job_id;
+}
+
+function get_random_unassigned_leads($conn, $table, $zip_codes, $limit) {
+    $select_query = "SELECT lead_id FROM $table WHERE assigned_to IS NULL";
+    if (!empty($zip_codes)) {
+        $zip_placeholders = implode(',', array_fill(0, count($zip_codes), '?'));
+        $select_query .= " AND zip_code IN ($zip_placeholders)";
+    }
+    $select_query .= " ORDER BY RAND() LIMIT ?";
+
+    $stmt = mysqli_prepare($conn, $select_query);
+    $types = str_repeat('s', count($zip_codes)) . 'i';
+    $params = array_merge($zip_codes, [$limit]);
+    mysqli_stmt_bind_param($stmt, $types, ...$params);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+
+    $lead_ids = [];
+    while ($row = mysqli_fetch_assoc($result)) {
+        $lead_ids[] = $row['lead_id'];
+    }
+
+    return $lead_ids;
+}
 function get_unassigned_lead_count($conn, $table, $zip_codes) {
     $query = "SELECT COUNT(*) as total FROM $table WHERE assigned_to IS NULL";
     if (!empty($zip_codes)) {
