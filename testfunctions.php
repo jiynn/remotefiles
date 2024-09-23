@@ -265,16 +265,10 @@ function get_random_unassigned_leads($conn, $table, $zip_codes, $limit) {
 function get_unassigned_lead_count($conn, $table, $zip_codes) {
     $query = "SELECT COUNT(*) as total FROM $table WHERE assigned_to IS NULL";
     if (!empty($zip_codes)) {
-        $zip_placeholders = implode(',', array_fill(0, count($zip_codes), '?'));
-        $query .= " AND zip_code IN ($zip_placeholders)";
+        $zip_codes_string = implode(',', array_map('intval', $zip_codes));
+        $query .= " AND zip_code IN ($zip_codes_string)";
     }
-    $stmt = mysqli_prepare($conn, $query);
-    if (!empty($zip_codes)) {
-        $types = str_repeat('s', count($zip_codes));
-        mysqli_stmt_bind_param($stmt, $types, ...$zip_codes);
-    }
-    mysqli_stmt_execute($stmt);
-    $result = mysqli_stmt_get_result($stmt);
+    $result = mysqli_query($conn, $query);
     $row = mysqli_fetch_assoc($result);
     return $row['total'];
 }
