@@ -279,7 +279,7 @@ function get_random_unassigned_leads($conn, $table, $zip_codes, $limit) {
 function get_unassigned_lead_count($conn, $table, $zip_codes) {
     $query = "SELECT COUNT(*) as total FROM $table WHERE assigned_to IS NULL";
     if (!empty($zip_codes)) {
-        $zip_codes_string = implode(',', array_map('intval', $zip_codes));
+        $zip_codes_string = implode(',', $zip_codes);
         $query .= " AND zip_code IN ($zip_codes_string)";
     }
     $result = mysqli_query($conn, $query);
