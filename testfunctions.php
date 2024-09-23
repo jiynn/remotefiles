@@ -174,44 +174,24 @@ function get_lead_assignment_stats($conn, $users) {
     return $stats;
 }
 
-function assign_leads($conn, $clear_first = true) {
-    if ($clear_first) {
-        clear_leads($conn);
-    }
-
-    $users = get_all_users($conn);
+function assign_leads($conn, $stats) {
     $assigned_count = 0;
     $errors = [];
+    $batch_size = 1000; // Adjust this value based on your system's performance
 
-    foreach ($users as $user) {
-        $assignments = get_user_assignments($conn, $user['id']);
-        foreach ($assignments as $assignment) {
-            $table = $assignment['assigned_table'];
-            $limit = $assignment['lead_limit'];
+    foreach ($stats as $user_stat) {
+        $user_id = $user_stat['user_id'];
+        foreach ($user_stat['assignments'] as $assignment) {
+            $table = $assignment['table'];
+            $limit = $assignment['limit'];
+            $assigned = $assignment['assigned'];
             $zip_codes = explode(',', $assignment['zip_codes']);
 
-            // Get the total number of unassigned leads in the table
-            $count_query = "SELECT COUNT(*) as total FROM $table WHERE assigned_to IS NULL";
-            if (!empty($zip_codes)) {
-                $zip_placeholders = implode(',', array_fill(0, count($zip_codes), '?'));
-                $count_query .= " AND zip_code IN ($zip_placeholders)";
-            }
-            $stmt = mysqli_prepare($conn, $count_query);
-            if (!empty($zip_codes)) {
-                $types = str_repeat('s', count($zip_codes));
-                mysqli_stmt_bind_param($stmt, $types, ...$zip_codes);
-            }
-            mysqli_stmt_execute($stmt);
-            $result = mysqli_stmt_get_result($stmt);
-            $row = mysqli_fetch_assoc($result);
-            $total_leads = $row['total'];
+            $to_assign = max(0, $limit - $assigned);
+            $total_leads = get_unassigned_lead_count($conn, $table, $zip_codes);
 
-            // Assign leads using Indexed Random Access with batch sizing
-            $assigned = 0;
-            $batch_size = 1000; // Adjust this value based on your system's performance
-
-            while ($assigned < $limit && $total_leads > 0) {
-                $batch_limit = min($batch_size, $limit - $assigned);
+            while ($to_assign > 0 && $total_leads > 0) {
+                $batch_limit = min($batch_size, $to_assign);
                 $random_indices = array_rand(range(0, $total_leads - 1), $batch_limit);
                 
                 if (!is_array($random_indices)) {
@@ -223,7 +203,7 @@ function assign_leads($conn, $clear_first = true) {
                     SELECT lead_id, @row := @row + 1 AS row_num
                     FROM $table, (SELECT @row := 0) AS r
                     WHERE assigned_to IS NULL
-                    " . (!empty($zip_codes) ? "AND zip_code IN ($zip_placeholders)" : "") . "
+                    " . (!empty($zip_codes) ? "AND zip_code IN (" . implode(',', array_fill(0, count($zip_codes), '?')) . ")" : "") . "
                 ) AS numbered
                 WHERE row_num IN ($placeholders)";
 
@@ -243,12 +223,12 @@ function assign_leads($conn, $clear_first = true) {
                 if (!empty($lead_ids)) {
                     $update_query = "UPDATE $table SET assigned_to = ? WHERE lead_id IN (" . implode(',', $lead_ids) . ")";
                     $stmt = mysqli_prepare($conn, $update_query);
-                    mysqli_stmt_bind_param($stmt, "i", $user['id']);
+                    mysqli_stmt_bind_param($stmt, "i", $user_id);
                     if (mysqli_stmt_execute($stmt)) {
-                        $assigned += count($lead_ids);
                         $assigned_count += count($lead_ids);
+                        $to_assign -= count($lead_ids);
                     } else {
-                        $errors[] = "Error assigning leads to user {$user['id']}";
+                        $errors[] = "Error assigning leads to user {$user_id}";
                     }
                 }
 
@@ -262,6 +242,24 @@ function assign_leads($conn, $clear_first = true) {
         'message' => "Assigned $assigned_count leads successfully." . (count($errors) > 0 ? " Errors: " . implode(", ", $errors) : ""),
     ];
 }
+
+function get_unassigned_lead_count($conn, $table, $zip_codes) {
+    $query = "SELECT COUNT(*) as total FROM $table WHERE assigned_to IS NULL";
+    if (!empty($zip_codes)) {
+        $zip_placeholders = implode(',', array_fill(0, count($zip_codes), '?'));
+        $query .= " AND zip_code IN ($zip_placeholders)";
+    }
+    $stmt = mysqli_prepare($conn, $query);
+    if (!empty($zip_codes)) {
+        $types = str_repeat('s', count($zip_codes));
+        mysqli_stmt_bind_param($stmt, $types, ...$zip_codes);
+    }
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    $row = mysqli_fetch_assoc($result);
+    return $row['total'];
+}
+
 
 function clear_leads($conn) {
     $users = get_all_users($conn);
