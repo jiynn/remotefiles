@@ -239,6 +239,20 @@ function queue_lead_assignment($conn) {
     
     return $job_id;
 }
+function queue_job($conn, $job_type, $job_data = null) {
+    $job_data_json = $job_data ? json_encode($job_data) : null;
+    $query = "INSERT INTO background_jobs (job_type, job_data) VALUES (?, ?)";
+    $stmt = mysqli_prepare($conn, $query);
+    mysqli_stmt_bind_param($stmt, "ss", $job_type, $job_data_json);
+    mysqli_stmt_execute($stmt);
+    $job_id = mysqli_insert_id($conn);
+    
+    // Trigger the background job processing
+    exec("php process_background_jobs.php > /dev/null 2>&1 &");
+    
+    return $job_id;
+}
+
 
 function get_random_unassigned_leads($conn, $table, $zip_codes, $limit) {
     $select_query = "SELECT lead_id FROM $table WHERE assigned_to IS NULL";
