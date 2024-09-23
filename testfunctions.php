@@ -189,7 +189,12 @@ function assign_leads($conn, $job_id) {
             $table = $assignment['table'];
             $limit = $assignment['limit'];
             $assigned = $assignment['assigned'];
-            $zip_codes = explode(',', $assignment['zip_codes']);
+            $zip_codes = $assignment['zip_codes'];
+
+            // Convert zip_codes to an array if it's a string
+            if (!is_array($zip_codes)) {
+                $zip_codes = explode(',', $zip_codes);
+            }
 
             $to_assign = max(0, $limit - $assigned);
             $total_leads = get_unassigned_lead_count($conn, $table, $zip_codes);
@@ -224,7 +229,6 @@ function assign_leads($conn, $job_id) {
         'message' => $message,
     ];
 }
-
 function queue_lead_assignment($conn) {
     $query = "INSERT INTO background_jobs (job_type) VALUES ('assign_leads')";
     mysqli_query($conn, $query);
