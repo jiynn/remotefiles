@@ -354,3 +354,12 @@ function clear_random_user_leads($conn, $user_id, $table, $count) {
     mysqli_stmt_execute($stmt);
     return mysqli_stmt_affected_rows($stmt);
 }
+
+function get_user_assignments($conn, $user_id) {
+    $query = "SELECT * FROM user_table_assignments WHERE user_id = ?";
+    $stmt = mysqli_prepare($conn, $query);
+    mysqli_stmt_bind_param($stmt, "i", $user_id);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    return mysqli_fetch_all($result, MYSQLI_ASSOC);
+}
