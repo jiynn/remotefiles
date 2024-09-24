@@ -318,7 +318,6 @@ function clear_leads($conn) {
         'cleared' => $cleared_count
     ];
 }
-
 function get_assigned_lead_count($conn, $user_id, $table) {
     $query = "SELECT COUNT(*) as count FROM `$table` WHERE assigned_to = ?";
     $stmt = mysqli_prepare($conn, $query);
