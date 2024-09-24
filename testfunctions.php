@@ -184,7 +184,13 @@ function assign_leads($conn, $job_id) {
     $batch_size = 1000;
 
     foreach ($stats as $user_stat) {
-        $user_id = $user_stat['user_id'];
+        $user_id = isset($user_stat['id']) ? $user_stat['id'] : (isset($user_stat['user_id']) ? $user_stat['user_id'] : null);
+    
+        if ($user_id === null) {
+            // Log this issue or handle it appropriately
+            continue;
+        }
+    
         foreach ($user_stat['assignments'] as $assignment) {
             $table = $assignment['table'];
             $limit = $assignment['limit'];
