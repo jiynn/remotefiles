@@ -246,6 +246,7 @@ function queue_lead_assignment($conn) {
     return $job_id;
 }
 function queue_job($conn, $job_type, $job_data = null) {
+    error_log("queue_job called with job_type: $job_type, job_data: " . json_encode($job_data));
     $job_data_json = $job_data ? json_encode($job_data) : null;
     $query = "INSERT INTO background_jobs (job_type, job_data) VALUES (?, ?)";
     $stmt = mysqli_prepare($conn, $query);
