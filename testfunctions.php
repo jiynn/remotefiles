@@ -386,14 +386,28 @@ function get_user_id_by_username($conn, $username) {
     mysqli_stmt_execute($stmt);
     $result = mysqli_stmt_get_result($stmt);
     $row = mysqli_fetch_assoc($result);
-    return $row ? $row['id'] : null;
+    $user_id = $row ? $row['id'] : null;
+    
+    error_log("get_user_id_by_username: Username: $username, User ID: " . ($user_id ?? 'null'));
+    
+    return $user_id;
 }
 
 function verify_user_table_assignment($conn, $user_id, $table) {
+    error_log("verify_user_table_assignment: Checking user_id: $user_id, table: $table");
+    
     $query = "SELECT * FROM user_table_assignments WHERE user_id = ? AND assigned_table = ?";
     $stmt = mysqli_prepare($conn, $query);
     mysqli_stmt_bind_param($stmt, "is", $user_id, $table);
     mysqli_stmt_execute($stmt);
     $result = mysqli_stmt_get_result($stmt);
-    return mysqli_fetch_assoc($result);
+    $assignment = mysqli_fetch_assoc($result);
+    
+    if ($assignment) {
+        error_log("verify_user_table_assignment: Assignment found - " . json_encode($assignment));
+    } else {
+        error_log("verify_user_table_assignment: No assignment found");
+    }
+    
+    return $assignment;
 }
