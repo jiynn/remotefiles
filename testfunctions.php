@@ -378,3 +378,22 @@ function get_user_assignments($conn, $user_id) {
     $result = mysqli_stmt_get_result($stmt);
     return mysqli_fetch_all($result, MYSQLI_ASSOC);
 }
+
+function get_user_id_by_username($conn, $username) {
+    $query = "SELECT id FROM users WHERE username = ?";
+    $stmt = mysqli_prepare($conn, $query);
+    mysqli_stmt_bind_param($stmt, "s", $username);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    $row = mysqli_fetch_assoc($result);
+    return $row ? $row['id'] : null;
+}
+
+function verify_user_table_assignment($conn, $user_id, $table) {
+    $query = "SELECT * FROM user_table_assignments WHERE user_id = ? AND assigned_table = ?";
+    $stmt = mysqli_prepare($conn, $query);
+    mysqli_stmt_bind_param($stmt, "is", $user_id, $table);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    return mysqli_fetch_assoc($result);
+}
