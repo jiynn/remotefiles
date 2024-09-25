@@ -293,20 +293,21 @@ function clear_leads($conn, $user_id, $table) {
     $query = "UPDATE `$table` SET assigned_to = NULL WHERE assigned_to = ?";
     $stmt = mysqli_prepare($conn, $query);
     mysqli_stmt_bind_param($stmt, "i", $user_id);
-    
-    $job_data = [
+
+    $job_data = json_encode([
         'query' => $query,
         'user_id' => $user_id,
         'table' => $table
-    ];
-    
+    ]);
+
     $job_id = queue_job($conn, 'clear_leads', $job_data);
-    
+
     return [
         'message' => "Clear leads job queued. Job ID: $job_id",
         'job_id' => $job_id
     ];
 }
+
 function get_assigned_lead_count($conn, $user_id, $table) {
     $query = "SELECT COUNT(*) as count FROM `$table` WHERE assigned_to = ?";
     $stmt = mysqli_prepare($conn, $query);
@@ -344,4 +345,11 @@ function clear_random_user_leads($conn, $user_id, $table, $count) {
     mysqli_stmt_execute($stmt);
     return mysqli_stmt_affected_rows($stmt);
     
+}function get_user_assignments($conn, $user_id) {
+    $query = "SELECT * FROM user_table_assignments WHERE user_id = ?";
+    $stmt = mysqli_prepare($conn, $query);
+    mysqli_stmt_bind_param($stmt, "i", $user_id);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    return mysqli_fetch_all($result, MYSQLI_ASSOC);
 }
