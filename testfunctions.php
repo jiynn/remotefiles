@@ -251,14 +251,8 @@ function queue_job($conn, $job_type, $job_data = null) {
     $stmt = mysqli_prepare($conn, $query);
     mysqli_stmt_bind_param($stmt, "ss", $job_type, $job_data_json);
     mysqli_stmt_execute($stmt);
-    $job_id = mysqli_insert_id($conn);
-    
-    // Trigger the background job processing
-    exec("php process_background_jobs.php > /dev/null 2>&1 &");
-    
-    return $job_id;
+    return mysqli_insert_id($conn);
 }
-
 
 function get_random_unassigned_leads($conn, $table, $zip_codes, $limit) {
     $select_query = "SELECT lead_id FROM $table WHERE assigned_to IS NULL";
@@ -347,15 +341,15 @@ function assign_leads_to_user($conn, $user_id, $table, $count, $zip_codes) {
     mysqli_stmt_execute($stmt);
     return mysqli_stmt_affected_rows($stmt);
 }
+
 function clear_random_user_leads($conn, $user_id, $table, $count) {
     $query = "UPDATE `$table` SET assigned_to = NULL WHERE assigned_to = ? ORDER BY RAND() LIMIT ?";
     $stmt = mysqli_prepare($conn, $query);
     mysqli_stmt_bind_param($stmt, "ii", $user_id, $count);
     mysqli_stmt_execute($stmt);
     return mysqli_stmt_affected_rows($stmt);
-}
-
-function get_user_assignments($conn, $user_id) {
+    
+}function get_user_assignments($conn, $user_id) {
     $query = "SELECT * FROM user_table_assignments WHERE user_id = ?";
     $stmt = mysqli_prepare($conn, $query);
     mysqli_stmt_bind_param($stmt, "i", $user_id);
