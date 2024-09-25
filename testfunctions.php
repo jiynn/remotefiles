@@ -117,39 +117,6 @@ function update_user_lead_assignment($conn, $user_id, $assignments) {
     return true;
 }
 
-function clear_leads($conn, $user_id, $assigned_table) {
-    // Start a transaction
-    mysqli_begin_transaction($conn);
-
-    try {
-        // Clear leads for the specified user and table
-        $query = "DELETE FROM assigned_leads WHERE user_id = ? AND source_table = ?";
-        $stmt = mysqli_prepare($conn, $query);
-        mysqli_stmt_bind_param($stmt, "is", $user_id, $assigned_table);
-        $result = mysqli_stmt_execute($stmt);
-
-        if (!$result) {
-            throw new Exception("Failed to clear leads");
-        }
-
-        // Commit the transaction
-        mysqli_commit($conn);
-
-        return [
-            'success' => true,
-            'message' => "Leads cleared successfully for user ID $user_id from table $assigned_table"
-        ];
-    } catch (Exception $e) {
-        // Rollback the transaction in case of error
-        mysqli_rollback($conn);
-
-        return [
-            'success' => false,
-            'message' => "Error clearing leads: " . $e->getMessage()
-        ];
-    }
-}
-
 function clear_user_leads($conn, $user_id, $assigned_table) {
     $query = "UPDATE `$assigned_table` SET assigned_to = NULL WHERE assigned_to = ?";
     $stmt = mysqli_prepare($conn, $query);
