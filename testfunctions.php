@@ -289,22 +289,45 @@ function get_unassigned_lead_count($conn, $table, $zip_codes) {
     return $row['total'];
 }
 
-function clear_leads($conn, $user_id, $table) {
+function clear_leads($conn, $job_id = null, $job_data = null) {
+    if ($job_id !== null && $job_data !== null) {
+        // This is a background job execution
+        $data = json_decode($job_data, true);
+        $user_id = $data['user_id'];
+        $table = $data['table'];
+    } else {
+        // This is an immediate execution or job creation
+        $user_id = $_POST['user_id'] ?? null;
+        $table = $_POST['table'] ?? null;
+    }
+
+    if (!$user_id || !$table) {
+        return ['error' => 'Invalid user_id or table'];
+    }
+
     $query = "UPDATE `$table` SET assigned_to = NULL WHERE assigned_to = ?";
     $stmt = mysqli_prepare($conn, $query);
     mysqli_stmt_bind_param($stmt, "i", $user_id);
+    $result = mysqli_stmt_execute($stmt);
 
-    $job_data = json_encode([
-        'query' => $query,
-        'user_id' => $user_id,
-        'table' => $table
-    ]);
+    if ($job_id === null) {
+        // Queue as a background job
+        $job_data = json_encode(['user_id' => $user_id, 'table' => $table]);
+        $job_id = queue_job($conn, 'clear_leads', $job_data);
+        return ['message' => "Clear leads job queued. Job ID: $job_id", 'job_id' => $job_id];
+    } else {
+        // Background job execution
+        return ['message' => "Cleared leads for user $user_id in table $table", 'affected_rows' => mysqli_stmt_affected_rows($stmt)];
+    }
+}
 
-    $job_id = queue_job($conn, 'clear_leads', $job_data);
-
+function process_with_timeout($action, $conn, $data) {
+    error_log("process_with_timeout called with action: $action, data: " . json_encode($data));
+    $job_id = queue_job($conn, $action, $data);
+    error_log("Job queued with ID: $job_id");
     return [
-        'message' => "Clear leads job queued. Job ID: $job_id",
-        'job_id' => $job_id
+        'success' => true,
+        'message' => "The process has been queued as a background job. Job ID: $job_id",
     ];
 }
 
