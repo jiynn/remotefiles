@@ -288,28 +288,22 @@ function get_unassigned_lead_count($conn, $table, $zip_codes) {
     return $row['total'];
 }
 
-function clear_leads($conn) {
-    $users = get_all_users($conn);
-    $cleared_count = 0;
-
-    foreach ($users as $user) {
-        $assignments = get_user_assignments($conn, $user['id']);
-        foreach ($assignments as $assignment) {
-            $table = $assignment['assigned_table'];
-            $limit = $assignment['lead_limit'];
-            $current_assigned = get_assigned_lead_count($conn, $user['id'], $table);
-
-            if ($current_assigned > $limit) {
-                $to_clear = $current_assigned - $limit;
-                $cleared = clear_random_user_leads($conn, $user['id'], $table, $to_clear);
-                $cleared_count += $cleared;
-            }
-        }
-    }
-
+function clear_leads($conn, $user_id, $table) {
+    $query = "UPDATE `$table` SET assigned_to = NULL WHERE assigned_to = ?";
+    $stmt = mysqli_prepare($conn, $query);
+    mysqli_stmt_bind_param($stmt, "i", $user_id);
+    
+    $job_data = [
+        'query' => $query,
+        'user_id' => $user_id,
+        'table' => $table
+    ];
+    
+    $job_id = queue_job($conn, 'clear_leads', $job_data);
+    
     return [
-        'message' => "Cleared $cleared_count leads.",
-        'cleared' => $cleared_count
+        'message' => "Clear leads job queued. Job ID: $job_id",
+        'job_id' => $job_id
     ];
 }
 function get_assigned_lead_count($conn, $user_id, $table) {
