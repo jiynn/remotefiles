@@ -174,240 +174,50 @@ function get_lead_assignment_stats($conn, $users) {
     return $stats;
 }
 
-function assign_leads($conn, $job_id) {
-    // Update job status to processing
-    mysqli_query($conn, "UPDATE background_jobs SET status = 'processing' WHERE id = $job_id");
-
-    $stats = get_lead_assignment_stats($conn, get_all_users($conn));
+function assign_leads($conn) {
+    $users = get_all_users($conn);
     $assigned_count = 0;
-    $errors = [];
-    $batch_size = 1000;
+    $cleared_count = 0;
 
-    foreach ($stats as $user_stat) {
-        $user_id = isset($user_stat['id']) ? $user_stat['id'] : (isset($user_stat['user_id']) ? $user_stat['user_id'] : null);
-    
-        if ($user_id === null) {
-            // Log this issue or handle it appropriately
-            continue;
-        }
-    
-        foreach ($user_stat['assignments'] as $assignment) {
-            $table = $assignment['table'];
-            $limit = $assignment['limit'];
-            $assigned = $assignment['assigned'];
+    foreach ($users as $user) {
+        $assignments = mysqli_query($conn, "SELECT * FROM user_table_assignments WHERE user_id = {$user['id']}");
+        while ($assignment = mysqli_fetch_assoc($assignments)) {
+            $table = $assignment['assigned_table'];
+            $limit = $assignment['lead_limit'];
             $zip_codes = $assignment['zip_codes'];
 
-            // Convert zip_codes to an array if it's a string
-            if (!is_array($zip_codes)) {
-                $zip_codes = explode(',', $zip_codes);
+            // Clear existing leads
+            $clear_query = "UPDATE `$table` SET assigned_to = NULL WHERE assigned_to = ?";
+            $clear_stmt = mysqli_prepare($conn, $clear_query);
+            mysqli_stmt_bind_param($clear_stmt, "i", $user['id']);
+            mysqli_stmt_execute($clear_stmt);
+            $cleared_count += mysqli_affected_rows($conn);
+
+            // Assign new leads
+            $assign_query = "UPDATE `$table` SET assigned_to = ? WHERE assigned_to IS NULL";
+            if (!empty($zip_codes)) {
+                $zips = explode(',', $zip_codes);
+                $zip_placeholders = implode(',', array_fill(0, count($zips), '?'));
+                $assign_query .= " AND zip IN ($zip_placeholders)";
             }
-
-            $to_assign = max(0, $limit - $assigned);
-            $total_leads = get_unassigned_lead_count($conn, $table, $zip_codes);
-
-            while ($to_assign > 0 && $total_leads > 0) {
-                $batch_limit = min($batch_size, $to_assign);
-                $lead_ids = get_random_unassigned_leads($conn, $table, $zip_codes, $batch_limit);
-
-                if (!empty($lead_ids)) {
-                    $update_query = "UPDATE $table SET assigned_to = ? WHERE lead_id IN (" . implode(',', $lead_ids) . ")";
-                    $stmt = mysqli_prepare($conn, $update_query);
-                    mysqli_stmt_bind_param($stmt, "i", $user_id);
-                    if (mysqli_stmt_execute($stmt)) {
-                        $assigned_count += count($lead_ids);
-                        $to_assign -= count($lead_ids);
-                    } else {
-                        $errors[] = "Error assigning leads to user {$user_id}";
-                    }
-                }
-
-                $total_leads -= $batch_limit;
+            $assign_query .= " ORDER BY RAND() LIMIT ?";
+            
+            $assign_stmt = mysqli_prepare($conn, $assign_query);
+            $types = "i" . (empty($zip_codes) ? "" : str_repeat('s', count($zips))) . "i";
+            $params = array($user['id']);
+            if (!empty($zip_codes)) {
+                $params = array_merge($params, $zips);
             }
+            $params[] = $limit;
+            mysqli_stmt_bind_param($assign_stmt, $types, ...$params);
+            mysqli_stmt_execute($assign_stmt);
+            $assigned_count += mysqli_affected_rows($conn);
         }
     }
 
-    // Update job status to completed
-    $message = "Assigned $assigned_count leads successfully." . (count($errors) > 0 ? " Errors: " . implode(", ", $errors) : "");
-    mysqli_query($conn, "UPDATE background_jobs SET status = 'completed', message = '" . mysqli_real_escape_string($conn, $message) . "' WHERE id = $job_id");
-
     return [
-        'success' => true,
-        'message' => $message,
+        'message' => "Assigned $assigned_count new leads and cleared $cleared_count old leads.",
+        'assigned' => $assigned_count,
+        'cleared' => $cleared_count
     ];
-}
-function queue_lead_assignment($conn) {
-    $query = "INSERT INTO background_jobs (job_type) VALUES ('assign_leads')";
-    mysqli_query($conn, $query);
-    $job_id = mysqli_insert_id($conn);
-    
-    // Trigger the background job processing
-    exec("php process_background_jobs.php > /dev/null 2>&1 &");
-    
-    return $job_id;
-}
-function queue_job($conn, $job_type, $job_data = null) {
-    error_log("queue_job called with job_type: $job_type, job_data: " . json_encode($job_data));
-    $job_data_json = $job_data ? json_encode($job_data) : null;
-    $query = "INSERT INTO background_jobs (job_type, job_data) VALUES (?, ?)";
-    $stmt = mysqli_prepare($conn, $query);
-    mysqli_stmt_bind_param($stmt, "ss", $job_type, $job_data_json);
-    mysqli_stmt_execute($stmt);
-    return mysqli_insert_id($conn);
-}
-
-function get_random_unassigned_leads($conn, $table, $zip_codes, $limit) {
-    $select_query = "SELECT lead_id FROM $table WHERE assigned_to IS NULL";
-    if (!empty($zip_codes)) {
-        $zip_placeholders = implode(',', array_fill(0, count($zip_codes), '?'));
-        $select_query .= " AND zip_code IN ($zip_placeholders)";
-    }
-    $select_query .= " ORDER BY RAND() LIMIT ?";
-
-    $stmt = mysqli_prepare($conn, $select_query);
-    $types = str_repeat('s', count($zip_codes)) . 'i';
-    $params = array_merge($zip_codes, [$limit]);
-    mysqli_stmt_bind_param($stmt, $types, ...$params);
-    mysqli_stmt_execute($stmt);
-    $result = mysqli_stmt_get_result($stmt);
-
-    $lead_ids = [];
-    while ($row = mysqli_fetch_assoc($result)) {
-        $lead_ids[] = $row['lead_id'];
-    }
-
-    return $lead_ids;
-}
-function get_unassigned_lead_count($conn, $table, $zip_codes) {
-    $query = "SELECT COUNT(*) as total FROM $table WHERE assigned_to IS NULL";
-    if (!empty($zip_codes)) {
-        $zip_codes_string = is_array($zip_codes) ? implode(',', $zip_codes) : $zip_codes;
-
-        $query .= " AND zip_code IN ($zip_codes_string)";
-    }
-    $result = mysqli_query($conn, $query);
-    $row = mysqli_fetch_assoc($result);
-    return $row['total'];
-}
-
-function clear_leads($conn, $job_id = null, $job_data = null) {
-    if ($job_id !== null && $job_data !== null) {
-        // This is a background job execution
-        $data = json_decode($job_data, true);
-        $user_id = $data['user_id'];
-        $table = $data['table'];
-    } else {
-        // This is an immediate execution or job creation
-        $user_id = $_POST['user_id'] ?? null;
-        $table = $_POST['table'] ?? null;
-    }
-
-    if (!$user_id || !$table) {
-        return ['error' => 'Invalid user_id or table'];
-    }
-
-    $query = "UPDATE `$table` SET assigned_to = NULL WHERE assigned_to = ?";
-    $stmt = mysqli_prepare($conn, $query);
-    mysqli_stmt_bind_param($stmt, "i", $user_id);
-    $result = mysqli_stmt_execute($stmt);
-
-    if ($job_id === null) {
-        // Queue as a background job
-        $job_data = json_encode(['user_id' => $user_id, 'table' => $table]);
-        $job_id = queue_job($conn, 'clear_leads', $job_data);
-        return ['message' => "Clear leads job queued. Job ID: $job_id", 'job_id' => $job_id];
-    } else {
-        // Background job execution
-        return ['message' => "Cleared leads for user $user_id in table $table", 'affected_rows' => mysqli_stmt_affected_rows($stmt)];
-    }
-}
-
-function process_with_timeout($action, $conn, $data) {
-    error_log("process_with_timeout called with action: $action, data: " . json_encode($data));
-    $job_id = queue_job($conn, $action, $data);
-    error_log("Job queued with ID: $job_id");
-    return [
-        'success' => true,
-        'message' => "The process has been queued as a background job. Job ID: $job_id",
-    ];
-}
-
-function get_assigned_lead_count($conn, $user_id, $table) {
-    $query = "SELECT COUNT(*) as count FROM `$table` WHERE assigned_to = ?";
-    $stmt = mysqli_prepare($conn, $query);
-    mysqli_stmt_bind_param($stmt, "i", $user_id);
-    mysqli_stmt_execute($stmt);
-    $result = mysqli_stmt_get_result($stmt);
-    $row = mysqli_fetch_assoc($result);
-    return $row['count'];
-}
-
-function assign_leads_to_user($conn, $user_id, $table, $count, $zip_codes) {
-    $zip_condition = "";
-    $zip_array = [];
-    if (!empty($zip_codes)) {
-        $zip_array = explode(',', $zip_codes);
-        $zip_placeholders = implode(',', array_fill(0, count($zip_array), '?'));
-        $zip_condition = "AND zip IN ($zip_placeholders)";
-    }
-
-    $query = "UPDATE `$table` SET assigned_to = ? WHERE assigned_to IS NULL $zip_condition ORDER BY RAND() LIMIT ?";
-    $stmt = mysqli_prepare($conn, $query);
-
-    $types = "i" . str_repeat('s', count($zip_array)) . "i";
-    $params = array_merge([$user_id], $zip_array, [$count]);
-    mysqli_stmt_bind_param($stmt, $types, ...$params);
-
-    mysqli_stmt_execute($stmt);
-    return mysqli_stmt_affected_rows($stmt);
-}
-
-function clear_random_user_leads($conn, $user_id, $table, $count) {
-    $query = "UPDATE `$table` SET assigned_to = NULL WHERE assigned_to = ? ORDER BY RAND() LIMIT ?";
-    $stmt = mysqli_prepare($conn, $query);
-    mysqli_stmt_bind_param($stmt, "ii", $user_id, $count);
-    mysqli_stmt_execute($stmt);
-    return mysqli_stmt_affected_rows($stmt);
-    
-}
-
-function get_user_assignments($conn, $user_id) {
-    $query = "SELECT * FROM user_table_assignments WHERE user_id = ?";
-    $stmt = mysqli_prepare($conn, $query);
-    mysqli_stmt_bind_param($stmt, "i", $user_id);
-    mysqli_stmt_execute($stmt);
-    $result = mysqli_stmt_get_result($stmt);
-    return mysqli_fetch_all($result, MYSQLI_ASSOC);
-}
-
-function get_user_id_by_username($conn, $username) {
-    $query = "SELECT id FROM users WHERE username = ?";
-    $stmt = mysqli_prepare($conn, $query);
-    mysqli_stmt_bind_param($stmt, "s", $username);
-    mysqli_stmt_execute($stmt);
-    $result = mysqli_stmt_get_result($stmt);
-    $row = mysqli_fetch_assoc($result);
-    $user_id = $row ? $row['id'] : null;
-    
-    error_log("get_user_id_by_username: Username: $username, User ID: " . ($user_id ?? 'null'));
-    
-    return $user_id;
-}
-
-function verify_user_table_assignment($conn, $user_id, $table) {
-    error_log("verify_user_table_assignment: Checking user_id: $user_id, table: $table");
-    
-    $query = "SELECT * FROM user_table_assignments WHERE user_id = ? AND assigned_table = ?";
-    $stmt = mysqli_prepare($conn, $query);
-    mysqli_stmt_bind_param($stmt, "is", $user_id, $table);
-    mysqli_stmt_execute($stmt);
-    $result = mysqli_stmt_get_result($stmt);
-    $assignment = mysqli_fetch_assoc($result);
-    
-    if ($assignment) {
-        error_log("verify_user_table_assignment: Assignment found - " . json_encode($assignment));
-    } else {
-        error_log("verify_user_table_assignment: No assignment found");
-    }
-    
-    return $assignment;
 }
