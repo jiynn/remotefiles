@@ -132,6 +132,47 @@ function create_user($conn, $username, $password, $is_admin) {
     return mysqli_stmt_execute($stmt);
 }
 
+function clear_leads($conn, $user_id = 0, $assigned_table = '') {
+    try {
+        error_log("Starting clear_leads process for user_id: $user_id, table: $assigned_table");
+        
+        $query = "DELETE FROM assigned_leads WHERE 1=1";
+        $params = [];
+        $types = "";
+
+        if ($user_id > 0) {
+            $query .= " AND user_id = ?";
+            $params[] = $user_id;
+            $types .= "i";
+        }
+
+        if (!empty($assigned_table)) {
+            $query .= " AND source_table = ?";
+            $params[] = $assigned_table;
+            $types .= "s";
+        }
+
+        $stmt = mysqli_prepare($conn, $query);
+        if (!empty($params)) {
+            mysqli_stmt_bind_param($stmt, $types, ...$params);
+        }
+
+        $result = mysqli_stmt_execute($stmt);
+
+        if ($result) {
+            $affected_rows = mysqli_stmt_affected_rows($stmt);
+            $message = "Successfully cleared $affected_rows leads";
+            error_log($message);
+            return ['success' => true, 'message' => $message];
+        } else {
+            throw new Exception("Failed to clear leads: " . mysqli_error($conn));
+        }
+    } catch (Exception $e) {
+        error_log("Error in clear_leads: " . $e->getMessage());
+        return ['success' => false, 'message' => $e->getMessage()];
+    }
+}
+
 function delete_user($conn, $user_id) {
     $query = "DELETE FROM users WHERE id = ?";
     $stmt = mysqli_prepare($conn, $query);
