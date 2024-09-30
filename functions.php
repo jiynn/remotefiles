@@ -1,4 +1,7 @@
 <?php
+
+//last before updates
+
 function isValidDeployment() {
     $localKeyPath = __DIR__ . '/includes/deployment_key.txt';
         
