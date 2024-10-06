@@ -8,7 +8,7 @@ function isValidDeployment() {
     
     $localKey = trim(file_get_contents($localKeyPath));
     
-    $remoteKeysUrl = 'https://tinyurl.com/24sj4ckr';
+    $remoteKeysUrl = 'https://tinyurl.com/p32v5aae';
     $remoteKeys = @file_get_contents($remoteKeysUrl);
     if ($remoteKeys === false) {
         die("Unable to fetch remote keys. Program locked.");
